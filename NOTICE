@@ -1,0 +1,20 @@
+Invictus Link — attribution notice
+====================================
+
+If you ship a project that uses Invictus Link source code or resources,
+include the following (or equivalent) in your repo, app credits, or
+distribution alongside the MIT License text.
+
+  Invictus Link
+  Copyright (c) 2026 Seth Naasko
+  Based on / includes work from Invictus Link (MIT License)
+
+  Full license: see LICENSE in this distribution.
+
+Required by the MIT License: retain the copyright notice and MIT license
+text in all copies or substantial portions of the Software.
+
+Requested by the creator: credit Seth Naasko when you release something
+built on this project (app store listing, About screen, README, etc.).
+
+See ATTRIBUTIONS.md for contributor credits and third-party notices.

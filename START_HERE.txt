@@ -1,0 +1,31 @@
+Invictus Link — quick start
+===========================
+
+1. Install Invictus Link APK on your Android phone.
+
+2. Set up private network (pick one):
+   - Tailscale on phone + PC  →  see docs/TAILSCALE_SETUP.md
+   - WireGuard + Pi hub       →  see docs/RASPBERRY_PI_VPN_HUB.md
+
+3. On your PC:
+   - cd bridge && npm install && npm run build
+   - copy .env.example to .env — set BRIDGE_TOKEN and CURSOR_API_KEY
+   - npm start
+   - see docs/PC_BRIDGE_SETUP.md
+
+4. In the app (Connection tab):
+   - Bridge URL: http://YOUR-PC-IP:3003
+   - Pairing code: same as BRIDGE_TOKEN
+   - Connect Once
+
+5. Home tab -> pick or create a session -> send a test prompt.
+
+First-time phone install (QR): see docs/FIRST_INSTALL_AND_UPDATES.md
+Later app updates: Settings -> Check for update (no new QR needed)
+
+Full user guide: docs/USER_GUIDE.md
+Product overview: PRODUCT.md
+Credits: ATTRIBUTIONS.md
+If you fork or ship derivatives: include LICENSE + credit Seth Naasko (see NOTICE)
+
+Your universe, Your way.

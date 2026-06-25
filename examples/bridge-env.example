@@ -1,0 +1,17 @@
+# Bridge token used by the phone app to authenticate.
+BRIDGE_TOKEN="change-me-to-a-long-random-string"
+
+# Cursor API key (required for agent execution).
+CURSOR_API_KEY="put-your-cursor-api-key-here"
+
+# Must match :3003 in the app Connection URL.
+PORT=3003
+
+# Optional: helps OTA update URLs when phone uses VPN IP.
+#PUBLIC_URL="http://100.x.x.x:3003"
+
+# Optional model id (defaults to composer-2.5 in code).
+#CURSOR_MODEL_ID="composer-2.5"
+
+# Max minutes one prompt may run (default 10).
+#TASK_TIMEOUT_MINUTES=10

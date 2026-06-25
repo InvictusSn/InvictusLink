@@ -1,0 +1,13 @@
+# Bridge token used by the phone app to authenticate.
+# Set BRIDGE_TOKEN to a long random string (and keep it on your PC).
+BRIDGE_TOKEN="change-me-to-a-long-random-string"
+
+# Cursor API key (required for actual agent execution in local runtime).
+CURSOR_API_KEY="put-your-cursor-api-key-here"
+
+# Port the bridge listens on (must match :3003 in your app Connection URL).
+PORT=3003
+
+# Cursor model id (defaults to composer-2.5 in code if missing).
+#CURSOR_MODEL_ID="composer-2.5"
+

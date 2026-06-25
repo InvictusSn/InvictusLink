@@ -1,0 +1,35 @@
+# Secrets and runtime state
+bridge/.env
+bridge/.bridge.sessions.json
+bridge/.bridge.lock.json
+bridge/update-log.jsonl
+**/.env
+!**/.env.example
+!**/bridge-env.example
+
+# Android / Node build artifacts
+**/node_modules/
+**/local.properties
+**/.gradle/
+**/build/
+**/outputs/
+
+# Published binaries (build in CI or locally; do not commit secrets in manifests)
+bridge/public/download/*.apk
+bridge/public/download/latest.json
+bridge/config/link-sessions.json
+
+# Personal backups and VPN keys
+backups/
+**/wg-keys/
+**/*-private.key
+**/invictus-*.conf
+Documents/InvictusNetworks/
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+
+# Pulse is optional sibling project — exclude from Link-only repo if splitting
+# InvictusPulse/

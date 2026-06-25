@@ -1,0 +1,11 @@
+Invictus Link — start here
+============================
+
+1. Read README.md (full setup guide).
+2. Install Invictus Link on your Android phone (release/InvictusLink.apk or build from android/).
+3. Set up private network access to your PC (Tailscale or WireGuard — see docs/).
+4. On your PC: configure and start the bridge (see README.md and docs/PC_BRIDGE_SETUP.md).
+5. Open AGENTS.md in Cursor on your PC if you want step-by-step AI help.
+6. In the app Home tab: use **New Session** to create workspace folders on your PC.
+
+No passwords are in this folder. You create your own on your PC.

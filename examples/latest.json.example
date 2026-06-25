@@ -1,0 +1,5 @@
+{
+  "versionCode": VERSION_CODE,
+  "versionName": "VERSION_NAME",
+  "apkUrl": "http://YOUR-PC-IP:3003/download/InvictusLink.apk"
+}

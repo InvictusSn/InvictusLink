@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>InvictusLink</title>
+    <meta name="theme-color" content="#0b0b0f" />
+    <link rel="manifest" href="/manifest.json" />
+    <style>
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial,
+          sans-serif;
+        background: #0b0b0f;
+        color: #e9e9f1;
+      }
+      .wrap {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 16px;
+      }
+      .top {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        letter-spacing: 0.2px;
+        margin: 10px 0 18px;
+        font-size: 22px;
+      }
+      .card {
+        background: #151521;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 14px;
+        padding: 14px;
+      }
+      label {
+        display: block;
+        margin-top: 10px;
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.75);
+      }
+      textarea {
+        width: 100%;
+        min-height: 90px;
+        resize: vertical;
+        border-radius: 12px;
+        padding: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(0, 0, 0, 0.2);
+        color: #e9e9f1;
+        outline: none;
+      }
+      select,
+      input[type="text"] {
+        width: 100%;
+        border-radius: 12px;
+        padding: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(0, 0, 0, 0.2);
+        color: #e9e9f1;
+        outline: none;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 1fr 110px;
+        gap: 10px;
+        align-items: end;
+      }
+      button {
+        height: 44px;
+        border: 0;
+        border-radius: 12px;
+        cursor: pointer;
+        font-weight: 650;
+        background: #5b6cff;
+        color: white;
+      }
+      button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+      .status {
+        margin-top: 12px;
+        font-size: 13px;
+        color: rgba(255, 255, 255, 0.9);
+        white-space: pre-wrap;
+      }
+      .result {
+        margin-top: 12px;
+        font-size: 14px;
+        line-height: 1.35;
+        color: rgba(255, 255, 255, 0.95);
+        white-space: pre-wrap;
+      }
+      .muted {
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 12px;
+      }
+      @media (max-width: 520px) {
+        .row {
+          grid-template-columns: 1fr;
+        }
+        button {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="top">Cursor</div>
+      <div class="card">
+        <label for="project">Project</label>
+        <select id="project"></select>
+
+        <label for="token" class="muted">Bridge token (optional)</label>
+        <input id="token" type="text" placeholder="Optional — leave blank on localhost" />
+
+        <label for="outputStyle">Summary style</label>
+        <select id="outputStyle">
+          <option value="short" selected>Short</option>
+          <option value="detailed">Detailed</option>
+        </select>
+
+        <label for="prompt">Ask Cursor</label>
+        <div class="row">
+          <textarea id="prompt" placeholder="Type your prompt here..."></textarea>
+          <button id="send">Send</button>
+        </div>
+
+        <div id="status" class="status">Idle.</div>
+        <div id="result" class="result"></div>
+      </div>
+    </div>
+    <script src="app.js"></script>
+    <script>
+      // Allow "app-like" install behavior on Android via PWA.
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("/service-worker.js").catch(() => {});
+      }
+    </script>
+  </body>
+</html>
+

@@ -1,0 +1,28 @@
+{
+  "name": "invictus-link-bridge",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "watch": "tsx watch src/index.ts"
+  },
+  "dependencies": {
+    "@cursor/sdk": "*",
+    "cors": "*",
+    "dotenv": "*",
+    "express": "*",
+    "qrcode": "^1.5.4",
+    "zod": "*"
+  },
+  "devDependencies": {
+    "@types/cors": "*",
+    "@types/express": "*",
+    "@types/node": "*",
+    "@types/qrcode": "^1.5.6",
+    "tsx": "*",
+    "typescript": "*"
+  }
+}
