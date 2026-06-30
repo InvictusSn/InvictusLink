@@ -8,6 +8,8 @@
 
 **Latest release:** [v1.74](release/InvictusLink.apk) — download `release/InvictusLink.apk` or grab the APK from [GitHub Releases](https://github.com/InvictusSn/InvictusLink/releases).
 
+![Invictus Link — say hello from your phone and get a reply from the agent on your PC](docs/media/demo-hello.gif)
+
 Invictus Link is an **independent open-source project (MIT)**. It is **not affiliated with, endorsed by, or sponsored by** any third-party IDE or agent vendor.
 
 ---
@@ -17,6 +19,8 @@ Invictus Link is an **independent open-source project (MIT)**. It is **not affil
 Many proprietary companion apps focus on **hosted agents** and supervising work from anywhere. That is a solid model when you want cloud-first workflows.
 
 **Invictus Link is built for a different job:** a **native Android** app that connects to the agent on **your own PC**, over **your private network**.
+
+![Invictus Link — start a new project from your phone](docs/media/demo-new-project.gif)
 
 | | Typical hosted companion apps | Invictus Link |
 |---|------------------------------|---------------|
