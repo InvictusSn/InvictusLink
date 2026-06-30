@@ -15,6 +15,7 @@ $bridgeDownloadDir = Join-Path $ProjectRoot "bridge\public\download"
 $apkSource = Join-Path $androidDir "app\build\outputs\apk\debug\app-debug.apk"
 $apkSourceLocal = Join-Path $localAppBuildDir "outputs\apk\debug\app-debug.apk"
 $apkTarget = Join-Path $bridgeDownloadDir "InvictusLink.apk"
+$legacyApkTarget = Join-Path $bridgeDownloadDir "CursorMobile-debug.apk"
 $latestJsonPath = Join-Path $bridgeDownloadDir "latest.json"
 $gradlew = Join-Path $androidDir "gradlew.bat"
 $buildGradle = Join-Path $androidDir "app\build.gradle.kts"
@@ -102,6 +103,8 @@ if (-not (Test-Path $apkSource)) {
 
 New-Item -ItemType Directory -Force -Path $bridgeDownloadDir | Out-Null
 Copy-Item -Force $apkSource $apkTarget
+# Keep legacy filename in sync so older bridge routes serve the new build too.
+Copy-Item -Force $apkSource $legacyApkTarget
 
 $gradleText = Get-Content -Raw -Path $buildGradle
 $versionCodeMatch = [regex]::Match($gradleText, "versionCode\s*=\s*(\d+)")

@@ -19,8 +19,8 @@ android {
         applicationId = "com.invictus.link"
         minSdk = 26
         targetSdk = 34
-        versionCode = 61
-        versionName = "1.60"
+        versionCode = 69
+        versionName = "1.74"
     }
 
     buildTypes {
@@ -68,6 +68,11 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling:1.6.8")
     debugImplementation("androidx.compose.ui:ui-test-manifest:1.6.8")
 }
+
+
+
+
+
 
 
 

@@ -20,20 +20,33 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 object InvictusBrand {
+    val NavyDeep = Color(0xFF08090A)
     val Navy = Color(0xFF0B0B1E)
     val NavySurface = Color(0xFF12122A)
     val NavyElevated = Color(0xFF1A1A32)
-    val White = Color(0xFFE0E0E0)
+    val White = Color(0xFFE8EAED)
     val Muted = Color(0xFF9BA3B5)
     val Accent = Color(0xFF5B6EE8)
     val Success = Color(0xFF4ADE80)
     val Warning = Color(0xFFFBBF24)
     val Error = Color(0xFFF87171)
+    val Hairline = Color(0x14FFFFFF)
+    val HairlineStrong = Color(0x24FFFFFF)
+    val Outline = Color(0xFF2A2A40)
 }
+
+val InvictusFontFamily = FontFamily(
+    Font(R.font.inter, FontWeight.Normal),
+    Font(R.font.inter, FontWeight.Medium),
+    Font(R.font.inter, FontWeight.SemiBold),
+    Font(R.font.inter, FontWeight.Bold),
+)
 
 @Composable
 fun invictusColorScheme() = darkColorScheme(
@@ -51,19 +64,73 @@ fun invictusColorScheme() = darkColorScheme(
     onSurfaceVariant = InvictusBrand.Muted,
     error = InvictusBrand.Error,
     onError = InvictusBrand.Navy,
-    outline = Color(0xFF2A2A40),
+    outline = InvictusBrand.Outline,
 )
 
 val InvictusTypography = Typography(
-    headlineLarge = TextStyle(fontSize = 28.sp, fontWeight = FontWeight.Bold),
-    titleLarge = TextStyle(fontSize = 22.sp, fontWeight = FontWeight.SemiBold),
-    titleMedium = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold),
-    titleSmall = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium),
-    bodyLarge = TextStyle(fontSize = 16.sp),
-    bodyMedium = TextStyle(fontSize = 14.sp),
-    bodySmall = TextStyle(fontSize = 12.sp),
-    labelLarge = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium),
-    labelMedium = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium),
+    headlineLarge = TextStyle(
+        fontFamily = InvictusFontFamily,
+        fontSize = 28.sp,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = (-0.8).sp,
+    ),
+    titleLarge = TextStyle(
+        fontFamily = InvictusFontFamily,
+        fontSize = 22.sp,
+        fontWeight = FontWeight.SemiBold,
+        letterSpacing = (-0.35).sp,
+    ),
+    titleMedium = TextStyle(
+        fontFamily = InvictusFontFamily,
+        fontSize = 16.sp,
+        fontWeight = FontWeight.SemiBold,
+        letterSpacing = 0.sp,
+    ),
+    titleSmall = TextStyle(
+        fontFamily = InvictusFontFamily,
+        fontSize = 14.sp,
+        fontWeight = FontWeight.Medium,
+        letterSpacing = 0.1.sp,
+    ),
+    bodyLarge = TextStyle(
+        fontFamily = InvictusFontFamily,
+        fontSize = 16.sp,
+        fontWeight = FontWeight.Normal,
+        letterSpacing = 0.15.sp,
+        lineHeight = 24.sp,
+    ),
+    bodyMedium = TextStyle(
+        fontFamily = InvictusFontFamily,
+        fontSize = 14.sp,
+        fontWeight = FontWeight.Normal,
+        letterSpacing = 0.1.sp,
+        lineHeight = 20.sp,
+    ),
+    bodySmall = TextStyle(
+        fontFamily = InvictusFontFamily,
+        fontSize = 12.sp,
+        fontWeight = FontWeight.Normal,
+        letterSpacing = 0.2.sp,
+        lineHeight = 16.sp,
+    ),
+    labelLarge = TextStyle(
+        fontFamily = InvictusFontFamily,
+        fontSize = 14.sp,
+        fontWeight = FontWeight.Medium,
+        letterSpacing = 0.1.sp,
+    ),
+    labelMedium = TextStyle(
+        fontFamily = InvictusFontFamily,
+        fontSize = 12.sp,
+        fontWeight = FontWeight.Medium,
+        letterSpacing = 0.3.sp,
+    ),
+    labelSmall = TextStyle(
+        fontFamily = InvictusFontFamily,
+        fontSize = 11.sp,
+        fontWeight = FontWeight.Medium,
+        letterSpacing = 0.3.sp,
+    ),
 )
 
 enum class BottomTab(val label: String, val selectedIcon: ImageVector, val icon: ImageVector) {

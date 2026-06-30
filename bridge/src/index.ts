@@ -114,7 +114,11 @@ app.get("/download/latest.json", (req, res) => {
   }
 });
 
-app.get("/download/InvictusLink.apk", (req, res) => {
+app.get("/download/InvictusLink.apk", serveApkDownload);
+// Legacy filename — still requested by older bridge builds and cached manifests.
+app.get("/download/CursorMobile-debug.apk", serveApkDownload);
+
+function serveApkDownload(req: express.Request, res: express.Response) {
   if (!fs.existsSync(APK_PATH)) {
     res.status(404).json({ error: "apk not found" });
     return;
@@ -125,7 +129,7 @@ app.get("/download/InvictusLink.apk", (req, res) => {
     `attachment; filename="${APK_FILENAME}"`,
   );
   res.sendFile(APK_PATH);
-});
+}
 
 app.use(express.static(path.join(process.cwd(), "public")));
 
@@ -257,8 +261,7 @@ reloadProjectRegistry();
 const TaskCreateSchema = z.object({
   prompt: z.string().min(1).max(20_000),
   projectId: z.string().min(1).max(200).optional(),
-  // Optional extra instruction to keep the agent focused on “summarize the work”.
-  // This is intentionally limited so the phone app controls verbosity, not capability.
+  // Optional: "short" | "detailed" — controls recap verbosity after real coding work, not casual chat.
   outputStyle: z.enum(["short", "detailed"]).optional(),
 });
 const LoginSchema = z.object({
@@ -556,6 +559,27 @@ function toSafeString(value: unknown): string {
   }
 }
 
+function buildAgentPrompt(
+  userPrompt: string,
+  outputStyle: "short" | "detailed" = "short",
+): string {
+  const workRecapHint =
+    outputStyle === "detailed"
+      ? "If you edited files or ran tools, add a brief recap of what changed and which files matter."
+      : "If you edited files or ran tools, add a short recap of what you did.";
+
+  return [
+    "You are helping the user from their phone via Invictus Link.",
+    "Reply naturally and match the tone of their message.",
+    "For greetings, small talk, thanks, or simple questions: answer directly in plain language.",
+    "Do not use meta formats (for example \"## Summary\", \"What you asked\", \"What I did\") unless you actually completed coding or file work.",
+    workRecapHint,
+    "",
+    "User message:",
+    userPrompt,
+  ].join("\n");
+}
+
 async function runTask(taskId: string) {
   const task = tasks.get(taskId);
   if (!task) return;
@@ -568,14 +592,8 @@ async function runTask(taskId: string) {
   });
 
   const project = resolveProject(task.projectId);
-  const outputStyle = task.outputStyle;
-
-  const promptPrefix =
-    outputStyle === "detailed"
-      ? "Write a detailed summary of what you did, including key files/changes."
-      : "Write a short summary of what you did and the final outcome.";
-
-  const prompt = `${promptPrefix}\n\nUser prompt:\n${task.prompt}`;
+  const outputStyle = task.outputStyle ?? "short";
+  const prompt = buildAgentPrompt(task.prompt, outputStyle);
 
   try {
     if (!CURSOR_API_KEY) {

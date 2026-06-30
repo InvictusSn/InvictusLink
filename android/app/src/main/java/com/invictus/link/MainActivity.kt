@@ -528,7 +528,20 @@ internal fun checkForUpdate(baseUrl: String): UpdateInfo {
     return UpdateInfo(versionCode, versionName, apkUrl)
 }
 
-internal fun downloadAndInstallUpdate(context: Context, apkUrl: String) {
+internal fun readApkVersionCode(context: Context, apkFile: File): Int {
+    val info = context.packageManager.getPackageArchiveInfo(
+        apkFile.absolutePath,
+        PackageManager.GET_ACTIVITIES,
+    ) ?: throw RuntimeException("Could not read APK metadata")
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        info.longVersionCode.toInt()
+    } else {
+        @Suppress("DEPRECATION")
+        info.versionCode
+    }
+}
+
+internal fun downloadAndInstallUpdate(context: Context, apkUrl: String, currentVersionCode: Int) {
     if (apkUrl.isBlank()) {
         throw RuntimeException("No update URL")
     }
@@ -549,6 +562,13 @@ internal fun downloadAndInstallUpdate(context: Context, apkUrl: String) {
     }
     if (cacheFile.length() < 1024L) {
         throw RuntimeException("Downloaded APK is too small")
+    }
+    val downloadedCode = readApkVersionCode(context, cacheFile)
+    if (downloadedCode <= currentVersionCode) {
+        throw RuntimeException(
+            "Downloaded APK is v$downloadedCode but this device is v$currentVersionCode. " +
+                "Your PC bridge may be serving an old file — restart the bridge and publish again.",
+        )
     }
     val authority = "${context.packageName}.fileprovider"
     val contentUri = FileProvider.getUriForFile(context, authority, cacheFile)

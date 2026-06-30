@@ -1,19 +1,30 @@
 package com.invictus.link
 
 import android.content.Context
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -26,11 +37,24 @@ fun InvictusLinkScreen() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
-    val currentAppVersionCode = remember(context) { getAppVersionCode(context) }
+    var currentAppVersionCode by remember { mutableIntStateOf(getAppVersionCode(context)) }
+    var displayedVersionName by remember { mutableStateOf(getAppVersionName(context)) }
     val initialSession = remember(context, currentAppVersionCode) {
         loadSavedSession(context, currentAppVersionCode)
     }
     val prefs = remember(context) { context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, context) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                currentAppVersionCode = getAppVersionCode(context)
+                displayedVersionName = getAppVersionName(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     var currentTab by remember { mutableStateOf(BottomTab.Home) }
     var activitySection by remember { mutableStateOf(ActivitySection.Log) }
@@ -226,14 +250,23 @@ fun InvictusLinkScreen() {
     }
 
     InvictusTheme {
+        Box(Modifier.fillMaxSize()) {
         InvictusAppShell(
             currentTab = currentTab,
             onTabSelected = { currentTab = it },
             pendingCount = pendingApprovals.size,
             snackbarHostState = snackbar,
         ) { contentModifier ->
-            Box(contentModifier) {
-            when (currentTab) {
+            AnimatedContent(
+                targetState = currentTab,
+                modifier = contentModifier,
+                transitionSpec = {
+                    fadeIn(animationSpec = tween(220)) togetherWith fadeOut(animationSpec = tween(160))
+                },
+                label = "tabContent",
+            ) { tab ->
+            Box(Modifier.fillMaxSize()) {
+            when (tab) {
                 BottomTab.Home -> HomeScreen(
                     prompt = prompt,
                     onPromptChange = { prompt = it },
@@ -454,7 +487,7 @@ fun InvictusLinkScreen() {
                 )
 
                 BottomTab.Settings -> SettingsScreen(
-                    versionName = getAppVersionName(context),
+                    versionName = displayedVersionName,
                     updateStatus = updateStatus,
                     updateAvailable = updateAvailable,
                     checkingUpdate = checkingUpdate,
@@ -490,10 +523,13 @@ fun InvictusLinkScreen() {
                             runCatching {
                                 val url = resolveApkUrl(bridgeBaseUrl, updateUrl)
                                 withContext(Dispatchers.IO) {
-                                    downloadAndInstallUpdate(context, url)
+                                    downloadAndInstallUpdate(context, url, currentAppVersionCode)
                                 }
-                            }.onSuccess { snack("Installer opened") }
-                                .onFailure { snack("Install failed") }
+                            }.onSuccess {
+                                snack(
+                                    "Tap Install on the Android screen, then reopen Invictus Link."
+                                )
+                            }.onFailure { snack("Install failed: ${it.message ?: it}") }
                             installingUpdate = false
                         }
                     },
@@ -529,10 +565,11 @@ fun InvictusLinkScreen() {
                 )
             }
             }
+            }
         }
 
         if (showSetupWizard) {
-            SetupWizardDialog(
+            SetupWizardOverlay(
                 step = setupStep,
                 bridgeUrl = bridgeBaseUrl,
                 onBridgeUrlChange = { bridgeBaseUrl = it },
@@ -548,8 +585,9 @@ fun InvictusLinkScreen() {
                 onDismiss = {
                     prefs.edit().putBoolean(PREF_SETUP_COMPLETE, true).apply()
                     showSetupWizard = false
-                }
+                },
             )
+        }
         }
     }
 }

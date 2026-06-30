@@ -1,9 +1,14 @@
 package com.invictus.link
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +25,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.ExperimentalMaterialApi
@@ -35,12 +41,6 @@ import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Badge
-import androidx.compose.material3.BadgedBox
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -48,13 +48,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -101,31 +95,11 @@ fun InvictusAppShell(
         modifier = Modifier.fillMaxSize(),
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
-            NavigationBar(containerColor = InvictusBrand.NavySurface) {
-                BottomTab.entries.forEach { tab ->
-                    val badgeCount = if (tab == BottomTab.Activity) pendingCount else 0
-                    NavigationBarItem(
-                        selected = currentTab == tab,
-                        onClick = { onTabSelected(tab) },
-                        icon = {
-                            if (badgeCount > 0) {
-                                BadgedBox(badge = { Badge { Text("$badgeCount") } }) {
-                                    Icon(
-                                        if (currentTab == tab) tab.selectedIcon else tab.icon,
-                                        contentDescription = tab.label
-                                    )
-                                }
-                            } else {
-                                Icon(
-                                    if (currentTab == tab) tab.selectedIcon else tab.icon,
-                                    contentDescription = tab.label
-                                )
-                            }
-                        },
-                        label = { Text(tab.label) }
-                    )
-                }
-            }
+            InvictusBottomBar(
+                currentTab = currentTab,
+                onTabSelected = onTabSelected,
+                pendingCount = pendingCount,
+            )
         }
     ) { padding ->
         content(Modifier.padding(padding))
@@ -173,27 +147,22 @@ fun HomeScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+            .invictusScreenPadding(),
+        verticalArrangement = Arrangement.spacedBy(InvictusDimens.itemGap),
     ) {
-        if (!connectionOk) {
-            EmptyStateCard(
-                title = "Connect to your PC",
-                message = "Turn on WireGuard, then open Connection to pair with your PC bridge.",
-                actionLabel = "Go to Connection",
-                onAction = onConnectFirst
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            InvictusSectionHeader(
+                title = "Home",
+                subtitle = if (connectionOk) "Message your PC agent" else "Pair to get started",
+                modifier = Modifier.weight(1f),
             )
-        } else {
-            Text("Ready to send", style = MaterialTheme.typography.titleMedium, color = InvictusBrand.Success)
-        }
-
-        if (connectionOk) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-            ) {
+            if (connectionOk) {
                 SessionSelector(
-                    modifier = Modifier.widthIn(max = 160.dp),
+                    modifier = Modifier.widthIn(max = 180.dp),
                     projects = projects,
                     selectedProjectId = selectedProjectId,
                     enabled = !sending,
@@ -203,122 +172,133 @@ fun HomeScreen(
                 )
             }
         }
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 140.dp, max = 200.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(InvictusBrand.Navy)
-        ) {
-            InvictusPromptLogoBackground(modifier = Modifier.fillMaxSize())
-            OutlinedTextField(
-                value = prompt,
-                onValueChange = onPromptChange,
-                modifier = Modifier.fillMaxSize(),
-                placeholder = { Text("Message your PC agent…", color = InvictusBrand.Muted) },
-                enabled = !sending,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color.Transparent,
-                    unfocusedBorderColor = Color.Transparent,
-                    disabledBorderColor = Color.Transparent,
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent,
-                    disabledContainerColor = Color.Transparent,
-                    cursorColor = InvictusBrand.Accent,
-                    focusedTextColor = InvictusBrand.White,
-                    unfocusedTextColor = InvictusBrand.White,
-                ),
+
+        if (!connectionOk) {
+            EmptyStateCard(
+                title = "Connect to your PC",
+                message = "Turn on WireGuard, then open Connection to pair with your PC bridge.",
+                actionLabel = "Go to Connection",
+                onAction = onConnectFirst,
+            )
+        } else {
+            InvictusStatusChip(
+                label = "Connected — ready to send",
+                tone = StatusTone.Success,
             )
         }
 
-        Button(
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 148.dp, max = 200.dp)
+                .invictusCardSurface(background = InvictusBrand.Navy, borderColor = InvictusBrand.HairlineStrong),
+        ) {
+            InvictusPromptLogoBackground(modifier = Modifier.fillMaxSize())
+            InvictusTextField(
+                value = prompt,
+                onValueChange = onPromptChange,
+                modifier = Modifier.fillMaxSize(),
+                placeholder = "Message your PC agent…",
+                enabled = !sending && connectionOk,
+                transparentBackground = true,
+            )
+        }
+
+        InvictusPrimaryButton(
             onClick = onSend,
             modifier = Modifier.fillMaxWidth(),
             enabled = !sending && prompt.isNotBlank() && connectionOk,
-            colors = invictusButtonColors(),
         ) {
             Text(if (sending) "Sending…" else "Send to PC")
+        }
+
+        AnimatedVisibility(
+            visible = sending,
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically(),
+        ) {
+            InvictusSendingIndicator()
         }
 
         if (sending && elapsedSec >= 540) {
             Text(
                 "Long task — the bridge stops waiting at 10 minutes.",
                 style = MaterialTheme.typography.bodySmall,
-                color = InvictusBrand.Warning
+                color = InvictusBrand.Warning,
             )
         }
 
-        Card(
+        Column(
             modifier = Modifier
+                .weight(1f)
                 .fillMaxWidth()
-                .weight(1f),
-            colors = CardDefaults.cardColors(containerColor = InvictusBrand.NavyElevated)
+                .invictusCardSurface()
+                .padding(InvictusDimens.cardPadding),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Column(
-                Modifier
-                    .fillMaxSize()
-                    .padding(12.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Agent response", style = MaterialTheme.typography.titleSmall, color = InvictusBrand.White)
-                    IconButton(onClick = { responseExpanded = !responseExpanded }) {
-                        Icon(
-                            if (responseExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                            contentDescription = null
-                        )
-                    }
+                Text("Agent response", style = MaterialTheme.typography.titleSmall, color = InvictusBrand.White)
+                InvictusTextButton(onClick = { responseExpanded = !responseExpanded }) {
+                    Icon(
+                        if (responseExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = if (responseExpanded) "Collapse" else "Expand",
+                        tint = InvictusBrand.Muted,
+                        modifier = Modifier.size(20.dp),
+                    )
                 }
-                if (responseExpanded) {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        item {
-                            if (responseText.isBlank()) {
-                                Text(
-                                    "Ask anything — like the time, weather, or a question about your project — and the agent's reply will show up here.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = InvictusBrand.Muted
-                                )
-                            } else {
-                                Text(
-                                    responseText,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = InvictusBrand.White
-                                )
-                            }
+            }
+            AnimatedVisibility(
+                visible = responseExpanded,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically(),
+            ) {
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    item {
+                        if (responseText.isBlank()) {
+                            Text(
+                                "Ask anything — the agent's reply will show up here.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = InvictusBrand.Muted,
+                            )
+                        } else {
+                            Text(
+                                responseText,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = InvictusBrand.White,
+                            )
                         }
-                        if (history.isNotEmpty()) {
-                            item {
-                                HorizontalDivider()
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Text(
-                                        "History (${history.size})",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        color = InvictusBrand.Muted
-                                    )
-                                    TextButton(onClick = onClearHistory) {
-                                        Text("Clear", color = InvictusBrand.Muted)
-                                    }
+                    }
+                    if (history.isNotEmpty()) {
+                        item {
+                            HorizontalDivider(color = InvictusBrand.Hairline)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    "History (${history.size})",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = InvictusBrand.Muted,
+                                )
+                                InvictusTextButton(onClick = onClearHistory) {
+                                    Text("Clear", color = InvictusBrand.Muted)
                                 }
                             }
-                            items(history.asReversed()) { exchange ->
-                                HistoryItem(
-                                    exchange = exchange,
-                                    sending = sending,
-                                    onResend = { onResend(exchange) },
-                                )
-                            }
+                        }
+                        items(history.asReversed()) { exchange ->
+                            HistoryItem(
+                                exchange = exchange,
+                                sending = sending,
+                                onResend = { onResend(exchange) },
+                            )
                         }
                     }
                 }
@@ -463,47 +443,53 @@ private fun HistoryItem(
     val time = remember(exchange.timestampMs) {
         SimpleDateFormat("MMM d, HH:mm", Locale.US).format(Date(exchange.timestampMs))
     }
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = InvictusBrand.NavySurface),
-        onClick = { expanded = !expanded },
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .invictusCardSurface(background = InvictusBrand.NavySurface)
+            .clickable { expanded = !expanded }
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    time + if (exchange.projectId.isNotBlank()) " · ${exchange.projectId}" else "",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = InvictusBrand.Muted
-                )
-                Text(
-                    if (exchange.ok) "OK" else "ERR",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (exchange.ok) InvictusBrand.Success else InvictusBrand.Error
-                )
-            }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Text(
-                exchange.prompt,
-                style = MaterialTheme.typography.bodyMedium,
-                color = InvictusBrand.White,
-                maxLines = if (expanded) Int.MAX_VALUE else 2,
-                overflow = TextOverflow.Ellipsis
+                time + if (exchange.projectId.isNotBlank()) " · ${exchange.projectId}" else "",
+                style = MaterialTheme.typography.labelSmall,
+                color = InvictusBrand.Muted,
             )
-            if (expanded) {
-                HorizontalDivider()
+            InvictusStatusChip(
+                label = if (exchange.ok) "Completed" else "Failed",
+                tone = if (exchange.ok) StatusTone.Success else StatusTone.Error,
+                showDot = false,
+            )
+        }
+        Text(
+            exchange.prompt,
+            style = MaterialTheme.typography.bodyMedium,
+            color = InvictusBrand.White,
+            maxLines = if (expanded) Int.MAX_VALUE else 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        AnimatedVisibility(
+            visible = expanded,
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically(),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                HorizontalDivider(color = InvictusBrand.Hairline)
                 Text(
                     exchange.response.ifBlank { "(No output)" },
                     style = MaterialTheme.typography.bodySmall,
-                    color = InvictusBrand.Muted
+                    color = InvictusBrand.Muted,
                 )
-                OutlinedButton(
+                InvictusSecondaryButton(
                     onClick = onResend,
                     enabled = !sending,
                     modifier = Modifier.fillMaxWidth(),
-                    colors = invictusOutlinedButtonColors(),
                 ) {
                     Text("Resend")
                 }
@@ -573,10 +559,10 @@ fun ActivityScreen(
 
 @Composable
 private fun DigestSection(loading: Boolean, digest: DailyDigestInfo?) {
-    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(Modifier.invictusScreenPadding(), verticalArrangement = Arrangement.spacedBy(InvictusDimens.itemGap)) {
         if (loading && digest == null) {
-            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-            SkeletonBlock(height = 120)
+            InvictusSkeletonBlock(height = 8.dp)
+            InvictusSkeletonBlock(height = 120.dp)
         } else if (digest == null) {
             EmptyStateCard(
                 title = "No activity yet",
@@ -585,19 +571,17 @@ private fun DigestSection(loading: Boolean, digest: DailyDigestInfo?) {
                 onAction = {}
             )
         } else {
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Today's summary", style = MaterialTheme.typography.titleMedium)
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                        StatRing("${digest.successRate}%", "Success")
-                        StatRing(digest.totalRuns.toString(), "Runs")
-                        StatRing("~${digest.timeSavedMinutes}m", "Saved")
-                    }
-                    HorizontalDivider()
-                    StatLine("Date", digest.date)
-                    StatLine("Successes", digest.successCount.toString())
-                    StatLine("Failures", digest.failureCount.toString())
+            InvictusCard {
+                Text("Today's summary", style = MaterialTheme.typography.titleMedium)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    StatRing("${digest.successRate}%", "Success")
+                    StatRing(digest.totalRuns.toString(), "Runs")
+                    StatRing("~${digest.timeSavedMinutes}m", "Saved")
                 }
+                HorizontalDivider(color = InvictusBrand.Hairline)
+                StatLine("Date", digest.date)
+                StatLine("Successes", digest.successCount.toString())
+                StatLine("Failures", digest.failureCount.toString())
             }
         }
     }
@@ -656,27 +640,28 @@ private fun ApprovalsSection(
 ) {
     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (loading && items.isEmpty()) {
-            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            InvictusSkeletonBlock(height = 8.dp)
+            InvictusSkeletonBlock(height = 96.dp)
         }
         if (items.isEmpty()) {
             EmptyStateCard("No pending approvals", "Risky prompts wait here for your approval.", null, {})
         } else {
             items.forEach { item ->
                 val busy = approvingIds.contains(item.taskId)
-                Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(item.taskId, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(item.prompt, style = MaterialTheme.typography.bodyMedium)
-                        Text("Project: ${item.projectId}", style = MaterialTheme.typography.bodySmall, color = InvictusBrand.Muted)
-                        Text("Requires approval — destructive or risky action", style = MaterialTheme.typography.labelSmall, color = InvictusBrand.Warning)
-                        Button(
-                            onClick = { onApprove(item) },
-                            enabled = !busy,
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = invictusButtonColors(),
-                        ) {
-                            Text(if (busy) "Approving…" else "Approve")
-                        }
+                InvictusCard {
+                    Text(item.taskId, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(item.prompt, style = MaterialTheme.typography.bodyMedium)
+                    Text("Project: ${item.projectId}", style = MaterialTheme.typography.bodySmall, color = InvictusBrand.Muted)
+                    InvictusStatusChip(
+                        label = "Requires approval",
+                        tone = StatusTone.Warning,
+                    )
+                    InvictusPrimaryButton(
+                        onClick = { onApprove(item) },
+                        enabled = !busy,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(if (busy) "Approving…" else "Approve")
                     }
                 }
             }
@@ -700,125 +685,136 @@ fun ConnectionScreen(
     onOpenTailscale: () -> Unit,
     bridgeHost: String,
 ) {
+    val statusTone = when {
+        isPaired && diagnostics.isReady -> StatusTone.Success
+        pairingInProgress -> StatusTone.Active
+        diagnostics.bridgeReachable -> StatusTone.Warning
+        else -> StatusTone.Neutral
+    }
+    val statusLabel = when {
+        isPaired && diagnostics.isReady -> "Connected to your PC"
+        isPaired -> "Paired — checking bridge"
+        pairingInProgress -> "Connecting…"
+        else -> "Not connected"
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+            .invictusScreenPadding(),
+        verticalArrangement = Arrangement.spacedBy(InvictusDimens.sectionGap),
     ) {
-        Text("PC connection", style = MaterialTheme.typography.titleMedium)
+        InvictusSectionHeader(
+            title = "Connection",
+            subtitle = "Secure link between your phone and PC bridge",
+        )
+
+        InvictusStatusChip(label = statusLabel, tone = statusTone)
+
         ConnectionChecklist(diagnostics = diagnostics, isPaired = isPaired)
 
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(diagnostics.statusMessage, style = MaterialTheme.typography.bodyMedium)
-                if (diagnostics.showOpenTailscale) {
-                    OutlinedButton(
-                        onClick = onOpenTailscale,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = invictusOutlinedButtonColors(),
-                    ) {
-                        Text("Open Tailscale")
-                    }
-                }
-                OutlinedButton(
-                    onClick = onTestConnection,
+        InvictusCard {
+            Text(
+                diagnostics.statusMessage,
+                style = MaterialTheme.typography.bodyMedium,
+                color = InvictusBrand.White,
+            )
+            if (diagnostics.showOpenTailscale) {
+                InvictusSecondaryButton(
+                    onClick = onOpenTailscale,
                     modifier = Modifier.fillMaxWidth(),
-                    colors = invictusOutlinedButtonColors(),
                 ) {
-                    Text("Test connection")
+                    Text("Open Tailscale")
                 }
+            }
+            InvictusSecondaryButton(
+                onClick = onTestConnection,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Test connection")
             }
         }
 
-        OutlinedTextField(
-            value = bridgeBaseUrl,
-            onValueChange = onBridgeUrlChange,
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text("Bridge URL") },
-            placeholder = { Text("http://YOUR-PC-IP:3003") },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri)
-        )
-        Text(
-            "Use your PC's VPN IP from Invictus Networks setup.",
-            style = MaterialTheme.typography.bodySmall,
-            color = InvictusBrand.Muted
-        )
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            InvictusTextField(
+                value = bridgeBaseUrl,
+                onValueChange = onBridgeUrlChange,
+                label = "Bridge URL",
+                placeholder = "http://YOUR-PC-IP:3003",
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+            )
+            Text(
+                "Use your PC's VPN IP from Invictus Networks setup.",
+                style = MaterialTheme.typography.bodySmall,
+                color = InvictusBrand.Muted,
+            )
+        }
 
         if (isPaired) {
-            OutlinedTextField(
+            InvictusTextField(
                 value = "••••••••••••",
                 onValueChange = {},
+                label = "Pairing code",
                 readOnly = true,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("Pairing code") },
-                trailingIcon = { Icon(Icons.Default.CheckCircle, null, tint = InvictusBrand.Success) }
+                enabled = false,
+                trailingIcon = {
+                    Icon(Icons.Default.CheckCircle, null, tint = InvictusBrand.Success)
+                },
             )
             if (bridgeHost.isNotBlank()) {
-                Text("Connected to $bridgeHost", style = MaterialTheme.typography.bodySmall, color = InvictusBrand.Success)
+                Text(
+                    "Reachable at $bridgeHost",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = InvictusBrand.Success,
+                )
             }
-            OutlinedButton(
+            InvictusSecondaryButton(
                 onClick = onDisconnect,
                 modifier = Modifier.fillMaxWidth(),
-                colors = invictusOutlinedButtonColors(),
             ) {
                 Text("Disconnect")
             }
         } else {
-            OutlinedTextField(
+            InvictusTextField(
                 value = pairingCode,
                 onValueChange = onPairingCodeChange,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("Pairing code") },
-                singleLine = true,
-                visualTransformation = PasswordVisualTransformation()
+                label = "Pairing code",
+                visualTransformation = PasswordVisualTransformation(),
             )
-            Button(
+            InvictusPrimaryButton(
                 onClick = onConnect,
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !pairingInProgress && pairingCode.isNotBlank() && bridgeBaseUrl.isNotBlank(),
-                colors = invictusButtonColors(),
             ) {
-                Text(if (pairingInProgress) "Connecting…" else "Connect Once")
+                Text(if (pairingInProgress) "Connecting…" else "Connect")
             }
         }
 
         if (pairingStatus.isNotBlank()) {
-            Text(pairingStatus, style = MaterialTheme.typography.bodySmall, color = InvictusBrand.Muted)
+            Text(
+                pairingStatus,
+                style = MaterialTheme.typography.bodySmall,
+                color = InvictusBrand.Muted,
+            )
         }
     }
 }
 
 @Composable
 fun ConnectionChecklist(diagnostics: ConnectionDiagnostics, isPaired: Boolean) {
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            ChecklistRow(
-                "VPN active",
-                when {
-                    diagnostics.usesInvictusVpnAddress || diagnostics.usesTailscaleAddress ->
-                        diagnostics.tailscaleVpnActive
-                    else -> true
-                }
-            )
-            ChecklistRow("Bridge reachable", diagnostics.bridgeReachable)
-            ChecklistRow("Paired with PC", isPaired)
-        }
-    }
-}
-
-@Composable
-private fun ChecklistRow(label: String, done: Boolean) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Icon(
-            if (done) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
-            contentDescription = null,
-            tint = if (done) InvictusBrand.Success else InvictusBrand.Muted,
-            modifier = Modifier.size(20.dp)
+    InvictusCard {
+        Text("Connection checklist", style = MaterialTheme.typography.titleSmall, color = InvictusBrand.White)
+        InvictusChecklistRow(
+            label = "VPN active",
+            done = when {
+                diagnostics.usesInvictusVpnAddress || diagnostics.usesTailscaleAddress ->
+                    diagnostics.tailscaleVpnActive
+                else -> true
+            },
         )
-        Text(label, style = MaterialTheme.typography.bodyMedium)
+        InvictusChecklistRow("Bridge reachable", diagnostics.bridgeReachable)
+        InvictusChecklistRow("Paired with PC", isPaired)
     }
 }
 
@@ -841,27 +837,30 @@ fun SettingsScreen(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+            .invictusScreenPadding(),
+        verticalArrangement = Arrangement.spacedBy(InvictusDimens.itemGap)
     ) {
-        Text("Settings", style = MaterialTheme.typography.titleMedium)
+        InvictusSectionHeader(title = "Settings", subtitle = "Updates and publishing")
         SettingsSection(title = "About & updates") {
             StatLine("Version", "v$versionName")
             Text(updateStatus, style = MaterialTheme.typography.bodySmall, color = InvictusBrand.Muted)
-            Button(
+            InvictusPrimaryButton(
                 onClick = onCheckUpdate,
                 enabled = !checkingUpdate,
                 modifier = Modifier.fillMaxWidth(),
-                colors = invictusButtonColors(),
             ) {
                 Text(if (checkingUpdate) "Checking…" else "Check for update")
             }
             if (updateAvailable) {
-                OutlinedButton(
+                Text(
+                    "Opens the Android installer — tap Install on that screen, then reopen the app.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = InvictusBrand.Muted,
+                )
+                InvictusSecondaryButton(
                     onClick = onInstallUpdate,
                     enabled = !installingUpdate,
                     modifier = Modifier.fillMaxWidth(),
-                    colors = invictusOutlinedButtonColors(),
                 ) {
                     Text(if (installingUpdate) "Installing…" else "Install update")
                 }
@@ -871,31 +870,29 @@ fun SettingsScreen(
             Text(
                 "Build a new APK on your PC and publish it for everyone on your network.",
                 style = MaterialTheme.typography.bodySmall,
-                color = InvictusBrand.Muted
+                color = InvictusBrand.Muted,
             )
-            Button(
+            InvictusPrimaryButton(
                 onClick = onPublishUpdate,
                 enabled = !buildingUpdate,
                 modifier = Modifier.fillMaxWidth(),
-                colors = invictusButtonColors(),
             ) {
                 Text(if (buildingUpdate) "Publishing…" else "Publish update")
             }
             if (buildStatus.isNotBlank()) {
-                Text(buildStatus, style = MaterialTheme.typography.bodySmall)
+                Text(buildStatus, style = MaterialTheme.typography.bodySmall, color = InvictusBrand.Muted)
             }
-            OutlinedButton(
+            InvictusSecondaryButton(
                 onClick = onArchiveVersion,
                 enabled = !backingUp,
                 modifier = Modifier.fillMaxWidth(),
-                colors = invictusOutlinedButtonColors(),
             ) {
                 Text(if (backingUp) "Archiving…" else "Archive current version")
             }
             Text(
                 "Saves the current APK and update manifest on your PC before you publish changes.",
                 style = MaterialTheme.typography.bodySmall,
-                color = InvictusBrand.Muted
+                color = InvictusBrand.Muted,
             )
         }
     }
@@ -903,14 +900,174 @@ fun SettingsScreen(
 
 @Composable
 private fun SettingsSection(title: String, content: @Composable () -> Unit) {
-    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = InvictusBrand.NavyElevated)) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(title, style = MaterialTheme.typography.titleSmall)
-            content()
+    InvictusCard {
+        Text(title, style = MaterialTheme.typography.titleSmall, color = InvictusBrand.White)
+        content()
+    }
+}
+
+@Composable
+fun SetupWizardOverlay(
+    step: Int,
+    bridgeUrl: String,
+    onBridgeUrlChange: (String) -> Unit,
+    pairingCode: String,
+    onPairingCodeChange: (String) -> Unit,
+    onNext: () -> Unit,
+    onBack: () -> Unit,
+    onFinish: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val totalSteps = 3
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(InvictusBrand.NavyDeep)
+            .statusBarsPadding()
+            .padding(InvictusDimens.pageHorizontal),
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(InvictusDimens.sectionGap),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (step > 0) {
+                    InvictusTextButton(onClick = onBack) { Text("Back") }
+                } else {
+                    Spacer(Modifier.size(48.dp))
+                }
+                InvictusTextButton(onClick = onDismiss) { Text("Skip") }
+            }
+
+            if (step == 0) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        "Invictus Link",
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = InvictusBrand.White,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Your universe, your way",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = InvictusBrand.Muted,
+                    )
+                    Spacer(Modifier.height(24.dp))
+                    Text(
+                        "Connect your phone to the Cursor agent on your PC — privately, over your own network.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = InvictusBrand.Muted,
+                    )
+                }
+            } else {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(InvictusDimens.itemGap),
+                ) {
+                    Text(
+                        "Step $step of $totalSteps",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = InvictusBrand.Accent,
+                    )
+                    when (step) {
+                        1 -> {
+                            Text(
+                                "Install WireGuard and connect your tunnel",
+                                style = MaterialTheme.typography.titleLarge,
+                                color = InvictusBrand.White,
+                            )
+                            Text(
+                                "Import your phone profile from Invictus Networks (QR or .conf). If you use Tailscale instead, install and connect it first.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = InvictusBrand.Muted,
+                            )
+                        }
+                        2 -> {
+                            Text(
+                                "Enter your PC bridge URL",
+                                style = MaterialTheme.typography.titleLarge,
+                                color = InvictusBrand.White,
+                            )
+                            Text(
+                                "Example: http://YOUR-PC-IP:3003 — your PC's VPN IP on port 3003.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = InvictusBrand.Muted,
+                            )
+                            InvictusTextField(
+                                value = bridgeUrl,
+                                onValueChange = onBridgeUrlChange,
+                                label = "PC bridge URL",
+                                placeholder = "http://YOUR-PC-IP:3003",
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                            )
+                        }
+                        else -> {
+                            Text(
+                                "Enter your pairing code",
+                                style = MaterialTheme.typography.titleLarge,
+                                color = InvictusBrand.White,
+                            )
+                            Text(
+                                "Find BRIDGE_TOKEN in your bridge .env on your PC.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = InvictusBrand.Muted,
+                            )
+                            InvictusTextField(
+                                value = pairingCode,
+                                onValueChange = onPairingCodeChange,
+                                label = "Pairing code",
+                                visualTransformation = PasswordVisualTransformation(),
+                            )
+                        }
+                    }
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                repeat(totalSteps) { index ->
+                    val active = (step == 0 && index == 0) || (step > 0 && index == step - 1)
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(
+                                if (active) InvictusBrand.Accent
+                                else InvictusBrand.HairlineStrong,
+                            ),
+                    )
+                }
+            }
+
+            InvictusPrimaryButton(
+                onClick = if (step >= totalSteps) onFinish else onNext,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    when {
+                        step == 0 -> "Get started"
+                        step >= totalSteps -> "Finish setup"
+                        else -> "Continue"
+                    },
+                )
+            }
+            Spacer(Modifier.height(12.dp))
         }
     }
 }
 
+/** @deprecated Use [SetupWizardOverlay] — kept as alias for compatibility. */
 @Composable
 fun SetupWizardDialog(
     step: Int,
@@ -922,98 +1079,17 @@ fun SetupWizardDialog(
     onBack: () -> Unit,
     onFinish: () -> Unit,
     onDismiss: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            if (step > 0) {
-                Text("Invictus Link setup")
-            }
-        },
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = if (step == 0) Alignment.CenterHorizontally else Alignment.Start,
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                when (step) {
-                    0 -> {
-                        Text(
-                            "Invictus",
-                            style = MaterialTheme.typography.headlineLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = InvictusBrand.White,
-                        )
-                        Text(
-                            "Your universe, Your way",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = InvictusBrand.Muted,
-                        )
-                    }
-                    1 -> {
-                        Text(
-                            "Step 1: Install WireGuard on your phone and turn on your Invictus Networks tunnel.",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Text(
-                            "Import your WireGuard phone profile (QR code or .conf file from your VPN setup). If you use Tailscale instead, install and connect the Tailscale app first — see the project documentation.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = InvictusBrand.Muted
-                        )
-                    }
-                    2 -> {
-                        Text(
-                            "Step 2: Enter your PC bridge URL — the address your phone uses to reach the bridge over Invictus Networks.",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Text(
-                            "Example: http://YOUR-PC-IP:3003\n(use your PC's VPN IP, port 3003)",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = InvictusBrand.Muted
-                        )
-                        OutlinedTextField(
-                            value = bridgeUrl,
-                            onValueChange = onBridgeUrlChange,
-                            label = { Text("PC bridge URL") },
-                            placeholder = { Text("http://YOUR-PC-IP:3003") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri)
-                        )
-                    }
-                    else -> {
-                        Text(
-                            "Step 3: Enter the pairing code from your PC bridge. Find it in your bridge .env file as BRIDGE_TOKEN.",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Text(
-                            "Example: your-bridge-token-here\n(copy the full token from your PC)",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = InvictusBrand.Muted
-                        )
-                        OutlinedTextField(
-                            value = pairingCode,
-                            onValueChange = onPairingCodeChange,
-                            label = { Text("Pairing code") },
-                            placeholder = { Text("your-bridge-token-here") },
-                            visualTransformation = PasswordVisualTransformation(),
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = if (step >= 3) onFinish else onNext) {
-                Text(if (step >= 3) "Done" else "Next")
-            }
-        },
-        dismissButton = {
-            if (step > 0) TextButton(onClick = onBack) { Text("Back") }
-        }
-    )
-}
+) = SetupWizardOverlay(
+    step = step,
+    bridgeUrl = bridgeUrl,
+    onBridgeUrlChange = onBridgeUrlChange,
+    pairingCode = pairingCode,
+    onPairingCodeChange = onPairingCodeChange,
+    onNext = onNext,
+    onBack = onBack,
+    onFinish = onFinish,
+    onDismiss = onDismiss,
+)
 
 @Composable
 fun EmptyStateCard(
@@ -1022,15 +1098,12 @@ fun EmptyStateCard(
     actionLabel: String?,
     onAction: () -> Unit,
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = InvictusBrand.NavyElevated)
-    ) {
-        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
-            Text(message, style = MaterialTheme.typography.bodySmall, color = InvictusBrand.Muted)
-            if (actionLabel != null) {
-                Button(onClick = onAction, colors = invictusButtonColors()) { Text(actionLabel) }
+    InvictusCard {
+        Text(title, style = MaterialTheme.typography.titleMedium, color = InvictusBrand.White)
+        Text(message, style = MaterialTheme.typography.bodySmall, color = InvictusBrand.Muted)
+        if (actionLabel != null) {
+            InvictusPrimaryButton(onClick = onAction, modifier = Modifier.fillMaxWidth()) {
+                Text(actionLabel)
             }
         }
     }
@@ -1038,13 +1111,7 @@ fun EmptyStateCard(
 
 @Composable
 fun SkeletonBlock(height: Int) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(height.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(InvictusBrand.NavyElevated)
-    )
+    InvictusSkeletonBlock(height = height.dp)
 }
 
 @Composable

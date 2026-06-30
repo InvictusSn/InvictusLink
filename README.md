@@ -1,6 +1,6 @@
 # Invictus Link — public release package
 
-This folder is a **public release** copy of Invictus Link (v1.60). It contains what you need to build, install, and run the app on your own PC and phone.
+This folder is a **public release** copy of Invictus Link (**v1.74**). It contains what you need to build, install, and run the app on your own PC and phone.
 
 **No API keys, pairing tokens, WireGuard private keys, or personal paths are included.**
 
@@ -11,7 +11,7 @@ This folder is a **public release** copy of Invictus Link (v1.60). It contains w
 | Path | Purpose |
 |------|---------|
 | [START_HERE.txt](START_HERE.txt) | Fastest path to first prompt |
-| [release/InvictusLink.apk](release/InvictusLink.apk) | Pre-built Android app (v1.60) |
+| [release/InvictusLink.apk](release/InvictusLink.apk) | Pre-built Android app (v1.74) |
 | [docs/FIRST_INSTALL_AND_UPDATES.md](docs/FIRST_INSTALL_AND_UPDATES.md) | Cursor setup, one-time install QR, in-app updates |
 | [docs/USER_GUIDE.md](docs/USER_GUIDE.md) | Daily use (sessions, prompts, updates) |
 | [docs/PC_BRIDGE_SETUP.md](docs/PC_BRIDGE_SETUP.md) | Run the bridge on a PC |
