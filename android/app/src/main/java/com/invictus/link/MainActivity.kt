@@ -12,6 +12,7 @@ import android.app.NotificationManager
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -19,27 +20,40 @@ import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.json.JSONObject
-import java.io.BufferedReader
 import java.io.File
-import java.io.FileOutputStream
-import java.io.InputStreamReader
-import java.io.OutputStreamWriter
-import java.net.HttpURLConnection
 import java.net.URI
-import java.net.URL
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import androidx.fragment.app.FragmentActivity
 import kotlin.coroutines.resume
 
 class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        installCrashLogger(this)
+        enableEdgeToEdge()
         createNotificationChannel(this)
+        requestNotificationPermissionIfNeeded()
+        LinkBackgroundWork.schedulePeriodicSync(this)
         setContent { InvictusLinkScreen() }
+    }
+
+    private fun requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT < 33) return
+        val granted = ActivityCompat.checkSelfPermission(
+            this,
+            Manifest.permission.POST_NOTIFICATIONS
+        ) == PackageManager.PERMISSION_GRANTED
+        if (!granted) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                1001
+            )
+        }
     }
 }
 
@@ -51,144 +65,17 @@ private const val PREF_BRIDGE_URL = "bridge_base_url"
 private const val PREF_WORKFLOW_LOG = "workflow_log_json"
 private const val PREF_PROMPT_HISTORY = "prompt_history_json"
 private const val PREF_SELECTED_PROJECT = "selected_project_id"
+private const val PREF_LAST_NOTIFIED_UPDATE_CODE = "last_notified_update_code"
+private const val PREF_SEEN_COMPLETION_KEYS = "seen_completion_keys_json"
+internal const val PREF_PENDING_UPDATE_CODE = "pending_update_code"
+internal const val PREF_PENDING_UPDATE_NAME = "pending_update_name"
+internal const val PREF_PENDING_UPDATE_URL = "pending_update_url"
+internal const val PREF_PINNED_PROVIDER_IDS = "pinned_provider_ids_json"
+private const val PREF_PHONE_TASK_IDS = "phone_originated_task_ids_json"
 private const val MAX_PERSISTED_LOG_ENTRIES = 200
 private const val MAX_PROMPT_HISTORY = 20
 private const val NOTIFICATION_CHANNEL_ID = "app_alerts"
 const val PREFS_NAME = "invictus_prefs"
-
-internal suspend fun submitAndWait(
-    baseUrl: String,
-    prompt: String,
-    projectId: String?,
-    token: String?,
-    onStatus: (String) -> Unit
-): String {
-    val normalizedBaseUrl = normalizeBaseUrl(baseUrl)
-    val created = createTask(normalizedBaseUrl, prompt, projectId, token)
-    if (created.requiresApproval || created.status == "awaiting_approval") {
-        throw RuntimeException("AWAITING_APPROVAL:${created.taskId}")
-    }
-    val taskId = created.taskId
-    // Poll slightly past the bridge's 10-minute task timeout so the bridge,
-    // not the app, decides when a long task has failed.
-    repeat(660) {
-        val task = getTask(normalizedBaseUrl, taskId)
-        when (task.status) {
-            "queued" -> withContext(Dispatchers.Main) { onStatus("Queued") }
-            "running" -> withContext(Dispatchers.Main) { onStatus("Running") }
-            "completed" -> return task.output ?: "(No output)"
-            "error" -> throw RuntimeException(task.error ?: "Task failed")
-            else -> withContext(Dispatchers.Main) { onStatus(task.status) }
-        }
-        delay(1000)
-    }
-    throw RuntimeException("Timed out waiting for task")
-}
-
-private data class TaskResponse(
-    val status: String,
-    val output: String?,
-    val error: String?
-)
-
-internal data class UpdateInfo(
-    val versionCode: Int,
-    val versionName: String,
-    val apkUrl: String
-)
-
-private data class BuildJobInfo(
-    val status: String,
-    val error: String?,
-    val lastOutput: String
-)
-
-private data class CreateTaskResponse(
-    val taskId: String,
-    val status: String,
-    val requiresApproval: Boolean
-)
-
-private fun createTask(
-    baseUrl: String,
-    prompt: String,
-    projectId: String?,
-    token: String?
-): CreateTaskResponse {
-    val url = URL("${baseUrl.trimEnd('/')}/tasks")
-    val conn = (url.openConnection() as HttpURLConnection).apply {
-        requestMethod = "POST"
-        doOutput = true
-        setRequestProperty("Content-Type", "application/json")
-        if (!token.isNullOrBlank()) {
-            setRequestProperty("Authorization", "Bearer $token")
-        }
-    }
-    val body = JSONObject()
-        .put("prompt", prompt)
-        .apply {
-            // Omit projectId entirely when unknown; the bridge falls back
-            // to its first configured project.
-            if (!projectId.isNullOrBlank()) put("projectId", projectId)
-        }
-        .put("outputStyle", "short")
-        .toString()
-
-    OutputStreamWriter(conn.outputStream).use { it.write(body) }
-    val code = conn.responseCode
-    val responseText = readHttpBody(conn, code in 200..299)
-    if (code !in 200..299) {
-        throw RuntimeException("Create task failed ($code): $responseText")
-    }
-    val json = JSONObject(responseText)
-    return CreateTaskResponse(
-        taskId = json.getString("taskId"),
-        status = json.optString("status", "queued"),
-        requiresApproval = json.optBoolean("requiresApproval", false)
-    )
-}
-
-private fun getTask(baseUrl: String, taskId: String): TaskResponse {
-    val url = URL("${baseUrl.trimEnd('/')}/tasks/$taskId")
-    val conn = (url.openConnection() as HttpURLConnection).apply {
-        requestMethod = "GET"
-    }
-    val code = conn.responseCode
-    val responseText = readHttpBody(conn, code in 200..299)
-    if (code !in 200..299) {
-        throw RuntimeException("Get task failed ($code): $responseText")
-    }
-    val json = JSONObject(responseText)
-    val output = if (json.has("output") && !json.isNull("output")) {
-        json.optString("output")
-    } else {
-        null
-    }
-    val error = if (json.has("error") && !json.isNull("error")) {
-        json.optString("error")
-    } else {
-        null
-    }
-    return TaskResponse(
-        status = json.optString("status", "unknown"),
-        output = output,
-        error = error
-    )
-}
-
-private fun readHttpBody(conn: HttpURLConnection, success: Boolean): String {
-    val stream = if (success) conn.inputStream else conn.errorStream
-    if (stream == null) return ""
-    return BufferedReader(InputStreamReader(stream)).use { reader ->
-        buildString {
-            var line: String?
-            while (true) {
-                line = reader.readLine() ?: break
-                append(line)
-            }
-        }
-    }
-}
 
 internal fun getAppVersionName(context: Context): String {
     return try {
@@ -244,7 +131,6 @@ internal fun isTailscaleHost(host: String): Boolean {
     if (parts.size != 4) return false
     val octets = parts.mapNotNull { it.toIntOrNull() }
     if (octets.size != 4) return false
-    // Tailscale CGNAT range: 100.64.0.0/10
     return octets[0] == 100 && octets[1] in 64..127
 }
 
@@ -254,7 +140,6 @@ internal fun isInvictusVpnHost(host: String): Boolean {
     if (parts.size != 4) return false
     val octets = parts.mapNotNull { it.toIntOrNull() }
     if (octets.size != 4) return false
-    // Invictus Networks WireGuard subnet
     return octets[0] == 10 && octets[1] == 66 && octets[2] == 66
 }
 
@@ -341,105 +226,90 @@ internal fun openTailscaleApp(context: Context) {
     context.startActivity(storeIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
 }
 
-private fun checkBridgeHealth(baseUrl: String): Boolean {
-    val normalizedBaseUrl = normalizeBaseUrl(baseUrl)
-    val url = URL("${normalizedBaseUrl.trimEnd('/')}/health")
-    val conn = (url.openConnection() as HttpURLConnection).apply {
-        requestMethod = "GET"
-        connectTimeout = 4000
-        readTimeout = 4000
+internal const val ATTACHMENT_MAX_BYTES = 25L * 1024L * 1024L
+
+internal fun resolveAttachmentInfo(context: Context, uri: Uri): PendingAttachment {
+    var name = uri.lastPathSegment ?: "attachment"
+    var size = -1L
+    context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+        val nameIdx = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+        val sizeIdx = cursor.getColumnIndex(android.provider.OpenableColumns.SIZE)
+        if (cursor.moveToFirst()) {
+            if (nameIdx >= 0) cursor.getString(nameIdx)?.let { name = it }
+            if (sizeIdx >= 0 && !cursor.isNull(sizeIdx)) size = cursor.getLong(sizeIdx)
+        }
     }
-    return conn.responseCode in 200..299
+    val mime = context.contentResolver.getType(uri)
+        ?: android.webkit.MimeTypeMap.getSingleton()
+            .getMimeTypeFromExtension(name.substringAfterLast('.', "").lowercase())
+        ?: "application/octet-stream"
+    return PendingAttachment(uri = uri, name = name, mimeType = mime, sizeBytes = size)
 }
 
-internal fun fetchProjects(baseUrl: String): List<ProjectInfo> {
-    val normalizedBaseUrl = normalizeBaseUrl(baseUrl)
-    val url = URL("${normalizedBaseUrl.trimEnd('/')}/health")
-    val conn = (url.openConnection() as HttpURLConnection).apply {
-        requestMethod = "GET"
-        connectTimeout = 4000
-        readTimeout = 4000
-    }
-    val code = conn.responseCode
-    val body = readHttpBody(conn, code in 200..299)
-    if (code !in 200..299) {
-        throw RuntimeException("Health check failed ($code)")
-    }
-    val json = JSONObject(body)
-    val arr = json.optJSONArray("projects") ?: return emptyList()
-    return buildList {
+internal fun decodeAttachmentThumbnail(
+    context: Context,
+    uri: Uri,
+    targetPx: Int = 128,
+): android.graphics.Bitmap? {
+    return runCatching {
+        val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        context.contentResolver.openInputStream(uri)?.use {
+            android.graphics.BitmapFactory.decodeStream(it, null, bounds)
+        }
+        var sample = 1
+        while (
+            bounds.outWidth / (sample * 2) >= targetPx &&
+            bounds.outHeight / (sample * 2) >= targetPx
+        ) {
+            sample *= 2
+        }
+        val opts = android.graphics.BitmapFactory.Options().apply { inSampleSize = sample }
+        context.contentResolver.openInputStream(uri)?.use {
+            android.graphics.BitmapFactory.decodeStream(it, null, opts)
+        }
+    }.getOrNull()
+}
+
+internal fun createCameraCaptureUri(context: Context): Uri {
+    val dir = File(context.cacheDir, "camera")
+    dir.mkdirs()
+    val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+    val file = File(dir, "IMG_$stamp.jpg")
+    val authority = "${context.packageName}.fileprovider"
+    return FileProvider.getUriForFile(context, authority, file)
+}
+
+internal fun loadPinnedProviderIds(context: Context): Set<String> {
+    val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .getString(PREF_PINNED_PROVIDER_IDS, null) ?: return emptySet()
+    val arr = runCatching { org.json.JSONArray(raw) }.getOrNull() ?: return emptySet()
+    return buildSet {
         for (i in 0 until arr.length()) {
-            val item = arr.optJSONObject(i) ?: continue
-            val id = item.optString("id", "")
-            if (id.isBlank()) continue
-            add(ProjectInfo(id = id, name = item.optString("name", id)))
+            val id = arr.optString(i, "")
+            if (id.isNotBlank()) add(id)
         }
     }
 }
 
-internal fun createLinkSession(
-    baseUrl: String,
-    token: String?,
-    name: String? = null,
-): ProjectInfo {
-    val normalizedBaseUrl = normalizeBaseUrl(baseUrl)
-    val url = URL("${normalizedBaseUrl.trimEnd('/')}/api/sessions")
-    val conn = (url.openConnection() as HttpURLConnection).apply {
-        requestMethod = "POST"
-        doOutput = true
-        setRequestProperty("Content-Type", "application/json")
-        if (!token.isNullOrBlank()) {
-            setRequestProperty("Authorization", "Bearer $token")
-        }
-        connectTimeout = 8000
-        readTimeout = 8000
-    }
-    val body = JSONObject().apply {
-        if (!name.isNullOrBlank()) put("name", name)
-    }
-    conn.outputStream.use { it.write(body.toString().toByteArray()) }
-    val code = conn.responseCode
-    val responseText = readHttpBody(conn, code in 200..299)
-    if (code !in 200..299) {
-        val err = runCatching { JSONObject(responseText).optString("error") }
-            .getOrNull()
-            ?.takeIf { it.isNotBlank() }
-        throw RuntimeException(
-            when (code) {
-                404 -> "Bridge needs an update — restart the PC bridge, then try again"
-                else -> err ?: "Create session failed ($code)"
-            },
-        )
-    }
-    val json = JSONObject(responseText)
-    val id = json.optString("id", "")
-    if (id.isBlank()) throw RuntimeException("Create session returned no id")
-    return ProjectInfo(id = id, name = json.optString("name", id))
+internal fun savePinnedProviderIds(context: Context, ids: Set<String>) {
+    val arr = org.json.JSONArray()
+    ids.forEach { arr.put(it) }
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .edit()
+        .putString(PREF_PINNED_PROVIDER_IDS, arr.toString())
+        .apply()
 }
 
-internal fun deleteLinkSession(
-    baseUrl: String,
-    token: String?,
-    sessionId: String,
-) {
-    val normalizedBaseUrl = normalizeBaseUrl(baseUrl)
-    val url = URL("${normalizedBaseUrl.trimEnd('/')}/api/sessions/$sessionId")
-    val conn = (url.openConnection() as HttpURLConnection).apply {
-        requestMethod = "DELETE"
-        if (!token.isNullOrBlank()) {
-            setRequestProperty("Authorization", "Bearer $token")
-        }
-        connectTimeout = 8000
-        readTimeout = 8000
-    }
-    val code = conn.responseCode
-    val responseText = readHttpBody(conn, code in 200..299)
-    if (code !in 200..299) {
-        val err = runCatching { JSONObject(responseText).optString("error") }
-            .getOrNull()
-            ?.takeIf { it.isNotBlank() }
-        throw RuntimeException(err ?: "Delete session failed ($code)")
-    }
+internal fun sortProvidersForDisplay(
+    providers: List<AiProviderInfo>,
+    pinnedIds: Set<String>,
+): List<AiProviderInfo> {
+    if (pinnedIds.isEmpty()) return providers
+    return providers.sortedWith(
+        compareByDescending<AiProviderInfo> { pinnedIds.contains(it.id) }
+            .thenByDescending { it.isActive }
+            .thenBy { it.label.lowercase() },
+    )
 }
 
 internal fun loadSelectedProjectId(context: Context): String? {
@@ -473,6 +343,7 @@ internal fun loadPromptHistory(context: Context): List<PromptExchange> {
                         response = obj.optString("r", ""),
                         projectId = obj.optString("j", ""),
                         ok = obj.optBoolean("ok", true),
+                        taskId = obj.optString("i", "").ifBlank { null },
                     )
                 )
             }
@@ -490,6 +361,7 @@ internal fun savePromptHistory(context: Context, history: List<PromptExchange>) 
                 .put("r", entry.response)
                 .put("j", entry.projectId)
                 .put("ok", entry.ok)
+                .apply { entry.taskId?.let { put("i", it) } }
         )
     }
     context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -498,192 +370,40 @@ internal fun savePromptHistory(context: Context, history: List<PromptExchange>) 
         .apply()
 }
 
-internal fun resolveApkUrl(baseUrl: String, manifestApkUrl: String): String {
-    val bridgeUri = URI(normalizeBaseUrl(baseUrl))
-    val apkUri = runCatching { URI(manifestApkUrl) }.getOrNull()
-    val apkPath = apkUri?.path?.takeIf { it.isNotBlank() }
-        ?: "/download/InvictusLink.apk"
-    return "${bridgeUri.scheme}://${bridgeUri.authority}$apkPath"
-}
+/** Fill in or correct history when a phone prompt finishes after a disconnect or late sync. */
+internal fun patchHistoryWithTaskResult(
+    context: Context,
+    baseUrl: String,
+    token: String,
+    taskId: String,
+): Boolean {
+    if (taskId.isBlank()) return false
+    val task = runCatching { fetchTask(baseUrl, taskId, token) }.getOrNull() ?: return false
+    if (task.status != "completed" && task.status != "error") return false
 
-internal fun checkForUpdate(baseUrl: String): UpdateInfo {
-    val normalizedBaseUrl = normalizeBaseUrl(baseUrl)
-    val url = URL("${normalizedBaseUrl.trimEnd('/')}/download/latest.json")
-    val conn = (url.openConnection() as HttpURLConnection).apply {
-        requestMethod = "GET"
-    }
-    val code = conn.responseCode
-    val responseText = readHttpBody(conn, code in 200..299)
-    if (code !in 200..299) {
-        throw RuntimeException("Update manifest failed ($code): $responseText")
-    }
-    val json = JSONObject(responseText)
-    val versionCode = json.optInt("versionCode", 0)
-    val versionName = json.optString("versionName", "unknown")
-    val manifestApkUrl = json.optString("apkUrl", "")
-    if (versionCode <= 0 || manifestApkUrl.isBlank()) {
-        throw RuntimeException("Invalid update manifest")
-    }
-    val apkUrl = resolveApkUrl(baseUrl, manifestApkUrl)
-    return UpdateInfo(versionCode, versionName, apkUrl)
-}
+    val history = loadPromptHistory(context).toMutableList()
+    val idx = history.indexOfLast { it.taskId == taskId }
+    if (idx < 0) return false
 
-internal fun readApkVersionCode(context: Context, apkFile: File): Int {
-    val info = context.packageManager.getPackageArchiveInfo(
-        apkFile.absolutePath,
-        PackageManager.GET_ACTIVITIES,
-    ) ?: throw RuntimeException("Could not read APK metadata")
-    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-        info.longVersionCode.toInt()
-    } else {
-        @Suppress("DEPRECATION")
-        info.versionCode
-    }
-}
+    val response = formatTaskHistoryResponse(task.status, task.output, task.error)
+    val ok = task.status == "completed"
+    val old = history[idx]
+    if (old.ok == ok && old.response == response) return false
+    if (old.ok && !ok) return false
 
-internal fun downloadAndInstallUpdate(context: Context, apkUrl: String, currentVersionCode: Int) {
-    if (apkUrl.isBlank()) {
-        throw RuntimeException("No update URL")
-    }
-    val cacheFile = File(context.cacheDir, "invictus-link-update.apk")
-    val conn = (URL(apkUrl).openConnection() as HttpURLConnection).apply {
-        requestMethod = "GET"
-        connectTimeout = 15000
-        readTimeout = 120000
-    }
-    val code = conn.responseCode
-    if (code !in 200..299) {
-        throw RuntimeException("Download failed ($code)")
-    }
-    conn.inputStream.use { input ->
-        FileOutputStream(cacheFile).use { output ->
-            input.copyTo(output)
-        }
-    }
-    if (cacheFile.length() < 1024L) {
-        throw RuntimeException("Downloaded APK is too small")
-    }
-    val downloadedCode = readApkVersionCode(context, cacheFile)
-    if (downloadedCode <= currentVersionCode) {
-        throw RuntimeException(
-            "Downloaded APK is v$downloadedCode but this device is v$currentVersionCode. " +
-                "Your PC bridge may be serving an old file — restart the bridge and publish again.",
-        )
-    }
-    val authority = "${context.packageName}.fileprovider"
-    val contentUri = FileProvider.getUriForFile(context, authority, cacheFile)
-    val installIntent = Intent(Intent.ACTION_VIEW).apply {
-        setDataAndType(contentUri, "application/vnd.android.package-archive")
-        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-    }
-    context.startActivity(installIntent)
-}
-
-internal fun pairSession(baseUrl: String, bridgeToken: String, currentVersionCode: Int): SessionInfo {
-    if (bridgeToken.isBlank()) {
-        throw RuntimeException("Bridge token is required for first-time pairing")
-    }
-    val normalizedBaseUrl = normalizeBaseUrl(baseUrl)
-    val url = URL("${normalizedBaseUrl.trimEnd('/')}/auth/login")
-    val conn = (url.openConnection() as HttpURLConnection).apply {
-        requestMethod = "POST"
-        doOutput = true
-        setRequestProperty("Content-Type", "application/json")
-    }
-    val body = JSONObject().put("bridgeToken", bridgeToken).toString()
-    OutputStreamWriter(conn.outputStream).use { it.write(body) }
-    val code = conn.responseCode
-    val responseText = readHttpBody(conn, code in 200..299)
-    if (code !in 200..299) {
-        throw RuntimeException("Pairing failed ($code): $responseText")
-    }
-    val json = JSONObject(responseText)
-    val sessionToken = json.optString("sessionToken", "")
-    val expiresAt = json.optLong("expiresAt", 0L)
-    if (sessionToken.isBlank() || expiresAt <= 0L) {
-        throw RuntimeException("Invalid pairing response")
-    }
-    return SessionInfo(
-        token = sessionToken,
-        expiresAtMs = expiresAt,
-        startedAtMs = System.currentTimeMillis(),
-        appVersionCode = currentVersionCode
-    )
-}
-
-internal fun fetchPendingApprovals(baseUrl: String, token: String): List<PendingApprovalItem> {
-    val normalizedBaseUrl = normalizeBaseUrl(baseUrl)
-    val url = URL("${normalizedBaseUrl.trimEnd('/')}/admin/pending-approvals")
-    val conn = (url.openConnection() as HttpURLConnection).apply {
-        requestMethod = "GET"
-        setRequestProperty("Authorization", "Bearer $token")
-    }
-    val code = conn.responseCode
-    val responseText = readHttpBody(conn, code in 200..299)
-    if (code !in 200..299) {
-        throw RuntimeException("Pending approvals failed ($code): $responseText")
-    }
-    val json = JSONObject(responseText)
-    val arr = json.optJSONArray("items") ?: return emptyList()
-    return buildList {
-        for (i in 0 until arr.length()) {
-            val item = arr.optJSONObject(i) ?: continue
-            add(
-                PendingApprovalItem(
-                    taskId = item.optString("taskId", ""),
-                    prompt = item.optString("prompt", ""),
-                    projectId = item.optString("projectId", "unknown"),
-                    createdAt = item.optLong("createdAt", 0L)
-                )
-            )
-        }
-    }.filter { it.taskId.isNotBlank() }
-}
-
-internal fun approvePendingTask(baseUrl: String, token: String, taskId: String) {
-    val normalizedBaseUrl = normalizeBaseUrl(baseUrl)
-    val url = URL("${normalizedBaseUrl.trimEnd('/')}/admin/pending-approvals/$taskId/approve")
-    val conn = (url.openConnection() as HttpURLConnection).apply {
-        requestMethod = "POST"
-        doOutput = true
-        setRequestProperty("Content-Type", "application/json")
-        setRequestProperty("Authorization", "Bearer $token")
-    }
-    OutputStreamWriter(conn.outputStream).use { it.write("{}") }
-    val code = conn.responseCode
-    val body = readHttpBody(conn, code in 200..299)
-    if (code !in 200..299) {
-        throw RuntimeException("Approve failed ($code): $body")
-    }
-}
-
-internal fun fetchDailyDigest(baseUrl: String, token: String): DailyDigestInfo {
-    val normalizedBaseUrl = normalizeBaseUrl(baseUrl)
-    val url = URL("${normalizedBaseUrl.trimEnd('/')}/admin/daily-digest")
-    val conn = (url.openConnection() as HttpURLConnection).apply {
-        requestMethod = "GET"
-        setRequestProperty("Authorization", "Bearer $token")
-    }
-    val code = conn.responseCode
-    val body = readHttpBody(conn, code in 200..299)
-    if (code !in 200..299) {
-        throw RuntimeException("Daily digest failed ($code): $body")
-    }
-    val json = JSONObject(body)
-    return DailyDigestInfo(
-        date = json.optString("date", "unknown"),
-        totalRuns = json.optInt("totalRuns", 0),
-        successCount = json.optInt("successCount", 0),
-        failureCount = json.optInt("failureCount", 0),
-        successRate = json.optInt("successRate", 0),
-        timeSavedMinutes = json.optInt("timeSavedMinutes", 0)
-    )
+    history[idx] = old.copy(response = response, ok = ok)
+    savePromptHistory(context, history)
+    return true
 }
 
 internal fun loadSavedSession(context: Context, currentVersionCode: Int): SessionInfo? {
     val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-    val token = prefs.getString(PREF_SESSION_TOKEN, null) ?: return null
+    val legacyToken = prefs.getString(PREF_SESSION_TOKEN, null)
+    if (!legacyToken.isNullOrBlank()) {
+        LinkSecureStore.saveSessionToken(context, legacyToken)
+        prefs.edit().remove(PREF_SESSION_TOKEN).apply()
+    }
+    val token = LinkSecureStore.loadSessionToken(context) ?: return null
     val expiresAt = prefs.getLong(PREF_SESSION_EXPIRES_AT, 0L)
     val appVersion = prefs.getInt(PREF_SESSION_APP_VERSION, -1)
     if (appVersion != currentVersionCode) {
@@ -700,9 +420,10 @@ internal fun loadSavedSession(context: Context, currentVersionCode: Int): Sessio
 }
 
 internal fun saveSession(context: Context, session: SessionInfo) {
+    LinkSecureStore.saveSessionToken(context, session.token)
     val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     prefs.edit()
-        .putString(PREF_SESSION_TOKEN, session.token)
+        .remove(PREF_SESSION_TOKEN)
         .putLong(PREF_SESSION_EXPIRES_AT, session.expiresAtMs)
         .putLong(PREF_SESSION_STARTED_AT, session.startedAtMs)
         .putInt(PREF_SESSION_APP_VERSION, session.appVersionCode)
@@ -710,6 +431,7 @@ internal fun saveSession(context: Context, session: SessionInfo) {
 }
 
 internal fun clearSession(context: Context) {
+    LinkSecureStore.clearSessionToken(context)
     val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     prefs.edit()
         .remove(PREF_SESSION_TOKEN)
@@ -776,7 +498,7 @@ internal fun saveWorkflowLog(context: Context, log: List<WorkflowEntry>) {
 private fun createNotificationChannel(context: Context) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
         val name = "Invictus Link"
-        val descriptionText = "Build status, approvals, and session reminders"
+        val descriptionText = "Updates, approvals, spending alerts, and publish status"
         val importance = NotificationManager.IMPORTANCE_DEFAULT
         val channel = NotificationChannel(NOTIFICATION_CHANNEL_ID, name, importance).apply {
             description = descriptionText
@@ -787,7 +509,7 @@ private fun createNotificationChannel(context: Context) {
     }
 }
 
-private fun showBuildNotification(context: Context, title: String, body: String) {
+internal fun showLinkNotification(context: Context, title: String, body: String) {
     if (Build.VERSION.SDK_INT >= 33) {
         val granted = ActivityCompat.checkSelfPermission(
             context,
@@ -796,11 +518,23 @@ private fun showBuildNotification(context: Context, title: String, body: String)
         if (!granted) return
     }
 
+    val launchIntent = Intent(context, MainActivity::class.java).apply {
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+    }
+    val pendingIntent = android.app.PendingIntent.getActivity(
+        context,
+        0,
+        launchIntent,
+        android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+    )
+
     val builder = NotificationCompat.Builder(context, NOTIFICATION_CHANNEL_ID)
-        .setSmallIcon(android.R.drawable.stat_notify_more)
+        .setSmallIcon(R.drawable.ic_stat_link)
         .setContentTitle(title)
         .setContentText(body)
-        .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+        .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+        .setPriority(NotificationCompat.PRIORITY_HIGH)
+        .setContentIntent(pendingIntent)
         .setAutoCancel(true)
 
     with(NotificationManagerCompat.from(context)) {
@@ -808,122 +542,99 @@ private fun showBuildNotification(context: Context, title: String, body: String)
     }
 }
 
-internal fun triggerArchiveApp(baseUrl: String, token: String?): String {
-    val normalizedBaseUrl = normalizeBaseUrl(baseUrl)
-    val url = URL("${normalizedBaseUrl.trimEnd('/')}/admin/backup-app")
-    val conn = (url.openConnection() as HttpURLConnection).apply {
-        requestMethod = "POST"
-        doOutput = true
-        setRequestProperty("Content-Type", "application/json")
-        if (!token.isNullOrBlank()) {
-            setRequestProperty("Authorization", "Bearer $token")
+internal fun loadSeenCompletionKeys(context: Context): Set<String> {
+    val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .getString(PREF_SEEN_COMPLETION_KEYS, null) ?: return emptySet()
+    val arr = runCatching { org.json.JSONArray(raw) }.getOrNull() ?: return emptySet()
+    return buildSet {
+        for (i in 0 until arr.length()) {
+            val key = arr.optString(i, "")
+            if (key.isNotBlank()) add(key)
         }
     }
-    OutputStreamWriter(conn.outputStream).use { it.write("{}") }
-    val code = conn.responseCode
-    val body = readHttpBody(conn, code in 200..299)
-    if (code !in 200..299) {
-        throw RuntimeException("Archive failed ($code): $body")
-    }
-    val json = JSONObject(body)
-    return json.optString("path", "backup created")
 }
 
-internal suspend fun triggerBuildAndWait(
+internal fun saveSeenCompletionKeys(context: Context, keys: Set<String>) {
+    val arr = org.json.JSONArray()
+    keys.toList().takeLast(80).forEach { arr.put(it) }
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .edit()
+        .putString(PREF_SEEN_COMPLETION_KEYS, arr.toString())
+        .apply()
+}
+
+internal fun loadPhoneOriginatedTaskIds(context: Context): Set<String> {
+    val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .getString(PREF_PHONE_TASK_IDS, null) ?: return emptySet()
+    val arr = runCatching { org.json.JSONArray(raw) }.getOrNull() ?: return emptySet()
+    return buildSet {
+        for (i in 0 until arr.length()) {
+            val id = arr.optString(i, "")
+            if (id.isNotBlank()) add(id)
+        }
+    }
+}
+
+internal fun addPhoneOriginatedTaskId(context: Context, taskId: String) {
+    if (taskId.isBlank()) return
+    val next = loadPhoneOriginatedTaskIds(context) + taskId
+    val arr = org.json.JSONArray()
+    next.toList().takeLast(20).forEach { arr.put(it) }
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .edit()
+        .putString(PREF_PHONE_TASK_IDS, arr.toString())
+        .apply()
+}
+
+internal fun removePhoneOriginatedTaskId(context: Context, taskId: String) {
+    if (taskId.isBlank()) return
+    val next = loadPhoneOriginatedTaskIds(context) - taskId
+    val arr = org.json.JSONArray()
+    next.forEach { arr.put(it) }
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .edit()
+        .putString(PREF_PHONE_TASK_IDS, arr.toString())
+        .apply()
+}
+
+internal fun suppressCompletionNotificationsForTask(
+    context: Context,
     baseUrl: String,
     token: String?,
-    onStatus: (String) -> Unit
-){
-    val normalizedBaseUrl = normalizeBaseUrl(baseUrl)
-    val startBody = withContext(Dispatchers.IO) {
-        val startUrl = URL("${normalizedBaseUrl.trimEnd('/')}/admin/build-apk")
-        val startConn = (startUrl.openConnection() as HttpURLConnection).apply {
-            requestMethod = "POST"
-            doOutput = true
-            setRequestProperty("Content-Type", "application/json")
-            if (!token.isNullOrBlank()) {
-                setRequestProperty("Authorization", "Bearer $token")
-            }
+    taskId: String,
+) {
+    if (taskId.isBlank()) return
+    removePhoneOriginatedTaskId(context, taskId)
+    if (token.isNullOrBlank() || baseUrl.isBlank()) return
+    runCatching {
+        val events = fetchNotifyableBridgeEvents(baseUrl, token)
+        val keys = events.filter { it.taskId == taskId }.map { it.key }
+        if (keys.isNotEmpty()) {
+            saveSeenCompletionKeys(context, loadSeenCompletionKeys(context) + keys)
         }
-        OutputStreamWriter(startConn.outputStream).use { it.write("{}") }
-        val startCode = startConn.responseCode
-        val body = readHttpBody(startConn, startCode in 200..299)
-        if (startCode !in 200..299) {
-            throw RuntimeException("Build start failed ($startCode): $body")
-        }
-        body
     }
-    if (startBody.isBlank()) { /* no-op */ }
-
-    repeat(240) {
-        val info = withContext(Dispatchers.IO) { getBuildStatus(normalizedBaseUrl, token) }
-        when (info.status) {
-            "idle" -> withContext(Dispatchers.Main) { onStatus("Build status: idle") }
-            "running" ->
-                withContext(Dispatchers.Main) {
-                    onStatus("Building... ${info.lastOutput.takeLast(140)}")
-                }
-            "completed" -> return
-            "error" -> throw RuntimeException(info.error ?: "Build failed")
-            else -> withContext(Dispatchers.Main) { onStatus("Build status: ${info.status}") }
-        }
-        delay(1500)
-    }
-    throw RuntimeException("Build timed out")
 }
 
-private fun getBuildStatus(baseUrl: String, token: String?): BuildJobInfo {
-    val url = URL("${baseUrl.trimEnd('/')}/admin/build-apk/status")
-    val conn = (url.openConnection() as HttpURLConnection).apply {
-        requestMethod = "GET"
-        if (!token.isNullOrBlank()) {
-            setRequestProperty("Authorization", "Bearer $token")
-        }
-    }
-    val code = conn.responseCode
-    val body = readHttpBody(conn, code in 200..299)
-    if (code !in 200..299) {
-        throw RuntimeException("Build status failed ($code): $body")
-    }
-    val json = JSONObject(body)
-    return BuildJobInfo(
-        status = json.optString("status", "unknown"),
-        error = if (json.has("error") && !json.isNull("error")) json.optString("error") else null,
-        lastOutput = json.optString("lastOutput", "")
-    )
+internal fun shouldSkipCompletionNotification(
+    context: Context,
+    event: NotifyableBridgeEvent,
+    foregroundTaskId: String?,
+): Boolean {
+    val taskId = event.taskId ?: return false
+    if (taskId == foregroundTaskId) return true
+    return taskId in loadPhoneOriginatedTaskIds(context)
 }
 
-private fun normalizeBaseUrl(input: String): String {
-    val trimmed = input.trim()
-    if (trimmed.isEmpty()) {
-        throw RuntimeException("Bridge URL is empty")
-    }
+internal fun getLastNotifiedUpdateCode(context: Context): Int {
+    return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .getInt(PREF_LAST_NOTIFIED_UPDATE_CODE, 0)
+}
 
-    // Handle accidental paste collisions like "...3003http:..."
-    val firstHttp = trimmed.indexOf("http://").let { idx ->
-        if (idx >= 0) idx else trimmed.indexOf("https://")
-    }
-    val candidate = if (firstHttp >= 0) trimmed.substring(firstHttp) else trimmed
-    val secondHttp = candidate.indexOf("http://", startIndex = 1).let { idx ->
-        if (idx >= 0) idx else candidate.indexOf("https://", startIndex = 1)
-    }
-    val singleUrl = if (secondHttp > 0) candidate.substring(0, secondHttp) else candidate
-
-    val withScheme = if (singleUrl.startsWith("http://") || singleUrl.startsWith("https://")) {
-        singleUrl
-    } else {
-        "http://$singleUrl"
-    }
-
-    val uri = try {
-        URI(withScheme)
-    } catch (e: Exception) {
-        throw RuntimeException("Invalid Bridge URL: $input")
-    }
-    val host = uri.host ?: throw RuntimeException("Invalid Bridge URL host: $input")
-    val scheme = uri.scheme ?: "http"
-    val portPart = if (uri.port > 0) ":${uri.port}" else ""
-    return "$scheme://$host$portPart"
+internal fun setLastNotifiedUpdateCode(context: Context, versionCode: Int) {
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .edit()
+        .putInt(PREF_LAST_NOTIFIED_UPDATE_CODE, versionCode)
+        .apply()
 }
 
 internal suspend fun authenticateBiometric(activity: FragmentActivity): Boolean {
@@ -966,4 +677,3 @@ internal suspend fun authenticateBiometric(activity: FragmentActivity): Boolean 
         prompt.authenticate(promptInfo)
     }
 }
-

@@ -28,8 +28,8 @@ Rename for release: `InvictusLink.apk`
 Edit `android/app/build.gradle.kts`:
 
 ```kotlin
-versionCode = 58   // increment every release
-versionName = "1.57"
+versionCode = 119   // increment every release
+versionName = "2.0"
 ```
 
 Sync `InvictusLink/VERSION.txt` when cutting a release.
@@ -49,8 +49,8 @@ Copy-Item "$env:LOCALAPPDATA\InvictusLinkBuild\android-app\outputs\apk\debug\app
 
 ```json
 {
-  "versionCode": 58,
-  "versionName": "1.57",
+  "versionCode": 119,
+  "versionName": "2.0",
   "apkUrl": "/download/InvictusLink.apk"
 }
 ```
@@ -87,27 +87,9 @@ Users update from the app: **Settings → Check for update → Install update**.
 
 ---
 
-## Bridge source zip (optional distribution)
-
-Sanitized zip (no secrets):
-
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts\invictus-networks\build-bridge-source-zip.ps1
-```
-
-Output: `InvictusLink/InvictusLink-bridge-source.zip`
-
-Run audit before sending:
-
-```powershell
-python scripts\invictus-networks\audit-bridge-zip.py InvictusLink\InvictusLink-bridge-source.zip
-```
-
----
-
 ## GitHub Release checklist
 
-1. Tag `v1.57`
+1. Tag `v2.0`
 2. Attach `InvictusLink.apk`
-3. Paste [PRODUCT.md](../PRODUCT.md) summary in release notes
+3. Paste [RELEASE_NOTES_2.0.md](../RELEASE_NOTES_2.0.md) in release notes
 4. Link to `docs/TAILSCALE_SETUP.md` and `docs/RASPBERRY_PI_VPN_HUB.md`

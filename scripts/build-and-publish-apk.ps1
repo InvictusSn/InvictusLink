@@ -1,5 +1,5 @@
 param(
-    [string]$ProjectRoot = "$PSScriptRoot\..\..",
+    [string]$ProjectRoot = (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent),
     [string]$BaseUrl = "http://<your-pc-vpn-ip>:3003",
     [switch]$AutoBump
 )
@@ -12,10 +12,9 @@ $localAppBuildDir = Join-Path (
     [Environment]::GetFolderPath("LocalApplicationData")
 ) "InvictusLinkBuild\android-app"
 $bridgeDownloadDir = Join-Path $ProjectRoot "bridge\public\download"
-$apkSource = Join-Path $androidDir "app\build\outputs\apk\debug\app-debug.apk"
-$apkSourceLocal = Join-Path $localAppBuildDir "outputs\apk\debug\app-debug.apk"
+$apkSource = Join-Path $androidDir "app\build\outputs\apk\release\app-release.apk"
+$apkSourceLocal = Join-Path $localAppBuildDir "outputs\apk\release\app-release.apk"
 $apkTarget = Join-Path $bridgeDownloadDir "InvictusLink.apk"
-$legacyApkTarget = Join-Path $bridgeDownloadDir "CursorMobile-debug.apk"
 $latestJsonPath = Join-Path $bridgeDownloadDir "latest.json"
 $gradlew = Join-Path $androidDir "gradlew.bat"
 $buildGradle = Join-Path $androidDir "app\build.gradle.kts"
@@ -77,10 +76,23 @@ try {
 
     Push-Location $androidDir
     try {
-        Write-Host "Building debug APK..."
-        & $gradlew clean assembleDebug
-        if ($LASTEXITCODE -ne 0) {
-            throw "Gradle build failed with exit code $LASTEXITCODE"
+        Write-Host "Building release APK (debug-signed for in-place updates)..."
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = $gradlew
+        $psi.Arguments = "clean assembleRelease"
+        $psi.WorkingDirectory = $androidDir
+        $psi.UseShellExecute = $false
+        $psi.CreateNoWindow = $true
+        $psi.RedirectStandardOutput = $true
+        $psi.RedirectStandardError = $true
+        $build = [System.Diagnostics.Process]::Start($psi)
+        $stdout = $build.StandardOutput.ReadToEnd()
+        $stderr = $build.StandardError.ReadToEnd()
+        $build.WaitForExit()
+        if ($stdout.Trim()) { Write-Host $stdout }
+        if ($stderr.Trim()) { Write-Host $stderr }
+        if ($build.ExitCode -ne 0) {
+            throw "Gradle build failed with exit code $($build.ExitCode)"
         }
     } finally {
         Pop-Location
@@ -103,8 +115,6 @@ if (-not (Test-Path $apkSource)) {
 
 New-Item -ItemType Directory -Force -Path $bridgeDownloadDir | Out-Null
 Copy-Item -Force $apkSource $apkTarget
-# Keep legacy filename in sync so older bridge routes serve the new build too.
-Copy-Item -Force $apkSource $legacyApkTarget
 
 $gradleText = Get-Content -Raw -Path $buildGradle
 $versionCodeMatch = [regex]::Match($gradleText, "versionCode\s*=\s*(\d+)")

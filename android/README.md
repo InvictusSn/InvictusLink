@@ -20,7 +20,7 @@ cd android
 
 ## Manual notes
 
-- Default bridge URL in app: `http://100.x.x.x:3003 (set in Connection tab)`
+- Default bridge URL in app: `http://YOUR-PC-IP:3003`
 - Change it in the app UI if your PC IP changes.
 - If you set `BRIDGE_TOKEN` on the bridge, paste the same token into the app.
 

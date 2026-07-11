@@ -1,4 +1,0 @@
-Build the APK before release:
-  cd android
-  .\gradlew.bat assembleDebug
-  copy release output to release\InvictusLink.apk

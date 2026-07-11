@@ -25,6 +25,7 @@ Later app updates: Settings -> Check for update (no new QR needed)
 
 Full user guide: docs/USER_GUIDE.md
 Product overview: PRODUCT.md
+Security: SECURITY.md
 Credits: ATTRIBUTIONS.md
 If you fork or ship derivatives: include LICENSE + credit Seth Naasko (see NOTICE)
 

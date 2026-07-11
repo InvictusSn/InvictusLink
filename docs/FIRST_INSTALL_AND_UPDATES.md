@@ -21,7 +21,7 @@ This guide is for **you** (the PC owner) setting up Invictus Link for the first 
 ## What your phone needs
 
 1. **Private network** to your PC — Tailscale or WireGuard (see [TAILSCALE_SETUP.md](TAILSCALE_SETUP.md) or [RASPBERRY_PI_VPN_HUB.md](RASPBERRY_PI_VPN_HUB.md)).
-2. **Bridge URL** saved in the app — e.g. `http://100.x.x.x:3003` or `http://10.66.66.11:3003`.
+2. **Bridge URL** saved in the app — e.g. `http://100.x.x.x:3003` or `http://10.66.66.21:3003`.
 3. For the **first** APK install only: VPN on, bridge running, then scan the install QR (below).
 
 ---
@@ -97,7 +97,7 @@ http://YOUR-PC-IP:3003/qr?url=http://YOUR-PC-IP:3003/download/InvictusLink.apk
 Example (WireGuard):
 
 ```text
-http://10.66.66.11:3003/qr?url=http://10.66.66.11:3003/download/InvictusLink.apk
+http://YOUR-PC-IP:3003/qr?url=http://YOUR-PC-IP:3003/download/InvictusLink.apk
 ```
 
 Open that URL in a browser on your PC. You will see a large QR code.

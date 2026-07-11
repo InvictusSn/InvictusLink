@@ -10,9 +10,21 @@
 
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
 
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <!-- Camera: QR pairing scan + photo attachments. Declared here means every
+         camera launch MUST be gated behind a runtime permission check first —
+         launching the system camera intent without the grant throws a
+         SecurityException (the source of past camera crashes). -->
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 
 
 
@@ -28,7 +40,7 @@
 
     <application
 
-        android:allowBackup="true"
+        android:allowBackup="false"
 
         android:icon="@mipmap/ic_launcher"
 
@@ -39,6 +51,8 @@
         android:supportsRtl="true"
 
         android:usesCleartextTraffic="true"
+
+        android:enableOnBackInvokedCallback="true"
 
         android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
 
@@ -58,6 +72,8 @@
 
             android:exported="true"
 
+            android:windowSoftInputMode="adjustResize"
+
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden">
 
             <intent-filter>
@@ -69,6 +85,18 @@
             </intent-filter>
 
         </activity>
+
+        <activity
+            android:name=".LinkQrCaptureActivity"
+            android:screenOrientation="portrait"
+            android:stateNotNeeded="true"
+            android:theme="@style/zxing_CaptureTheme"
+            android:windowSoftInputMode="stateAlwaysHidden" />
+
+        <service
+            android:name=".LinkAgentWatchService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
 
     </application>
 

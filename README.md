@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Android 8+](https://img.shields.io/badge/Android-26%2B-green)]()
 
-**Latest release:** [v1.74](release/InvictusLink.apk) — download `release/InvictusLink.apk` or grab the APK from [GitHub Releases](https://github.com/InvictusSn/InvictusLink/releases).
+**Latest release:** **v2.0** (`versionCode` 129) — download [`release/InvictusLink.apk`](release/InvictusLink.apk) or see [RELEASE_NOTES_2.0.md](RELEASE_NOTES_2.0.md).
 
 ![Invictus Link — say hello from your phone and get a reply from the agent on your PC](docs/media/demo-hello.gif)
 
@@ -82,7 +82,7 @@ New here? Start with [START_HERE.txt](START_HERE.txt).
 | [scripts/](scripts/) | Build, firewall, start bridge |
 | [InvictusLink/](InvictusLink/) | Quick-start templates and agent guide |
 | [examples/](examples/) | Safe config templates |
-| [RELEASE_NOTES_1.74.md](RELEASE_NOTES_1.74.md) | v1.74 release notes |
+| [RELEASE_NOTES_2.0.md](RELEASE_NOTES_2.0.md) | v2.0 release notes |
 | [ATTRIBUTIONS.md](ATTRIBUTIONS.md) · [NOTICE](NOTICE) | Credit and attribution |
 
 ---

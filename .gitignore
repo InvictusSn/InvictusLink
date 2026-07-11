@@ -3,6 +3,12 @@ bridge/.env
 bridge/.bridge.sessions.json
 bridge/.bridge.lock.json
 bridge/update-log.jsonl
+bridge/config/link-sessions.json
+bridge/config/providers.json
+bridge/config/grok-threads.json
+bridge/config/xai-pricing.json
+bridge/config/projects.json
+!bridge/config/*.example
 **/.env
 !**/.env.example
 !**/bridge-env.example
@@ -17,7 +23,6 @@ bridge/update-log.jsonl
 # Published binaries (build in CI or locally; do not commit secrets in manifests)
 bridge/public/download/*.apk
 bridge/public/download/latest.json
-bridge/config/link-sessions.json
 
 # Personal backups and VPN keys
 backups/

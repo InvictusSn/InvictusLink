@@ -33,7 +33,7 @@ Turn on **Tailscale** or **WireGuard** on your phone before connecting in the ap
 
 | Field | Example |
 |-------|---------|
-| **Bridge URL** | `http://100.x.x.x:3003` (Tailscale) or `http://10.66.66.11:3003` (WireGuard) |
+| **Bridge URL** | `http://100.x.x.x:3003` (Tailscale) or `http://10.66.66.21:3003` (WireGuard example) |
 | **Pairing code** | Same as `BRIDGE_TOKEN` in your PC `bridge/.env` |
 
 Tap **Connect Once** — fingerprint may be required.

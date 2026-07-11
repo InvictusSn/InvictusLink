@@ -4,7 +4,6 @@
 $ErrorActionPreference = "Stop"
 
 $projectRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
-if (-not $projectRoot) { $projectRoot = "$PSScriptRoot\..\.." }
 $bridgeDir = Join-Path $projectRoot "bridge"
 
 Push-Location $bridgeDir
@@ -21,7 +20,7 @@ try {
         Write-Host "Restarted existing bridge on port 3003."
     }
 
-    Write-Host "Starting bridge on http://<your-pc-vpn-ip>:3003 ..."
+    Write-Host "Starting bridge on port 3003..."
     Write-Host "Keep this window open while using Invictus Link on your phone."
     Write-Host ""
     npm run start

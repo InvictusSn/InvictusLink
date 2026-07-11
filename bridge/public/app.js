@@ -42,7 +42,9 @@ async function pollTask(taskId) {
   if (polling) clearInterval(polling);
 
   polling = setInterval(async () => {
-    const res = await fetch(`/tasks/${encodeURIComponent(taskId)}`);
+    const res = await fetch(`/tasks/${encodeURIComponent(taskId)}`, {
+      headers: authHeaders(),
+    });
     const data = await res.json();
     if (data.status === "completed") {
       clearInterval(polling);
@@ -60,6 +62,11 @@ async function pollTask(taskId) {
       setStatus("Error.");
       setResult(data.error || "Unknown error");
       sendEl.disabled = false;
+      return;
+    }
+    if (data.status === "running" && data.output) {
+      setStatus("Running...");
+      setResult(data.output);
       return;
     }
     if (data.status) {

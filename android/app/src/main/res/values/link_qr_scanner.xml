@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="link_navy_deep">#FF08090A</color>
+    <color name="link_navy_elevated">#FF1A1A32</color>
+    <color name="link_white">#FFE8EAED</color>
+    <color name="link_muted">#FF9BA3B5</color>
+    <color name="link_accent">#FF5B6EE8</color>
+
+    <style name="LinkQrCancelButton">
+        <item name="android:background">@drawable/link_qr_cancel_bg</item>
+        <item name="android:textColor">@color/link_white</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:minHeight">52dp</item>
+        <item name="android:textSize">16sp</item>
+    </style>
+</resources>

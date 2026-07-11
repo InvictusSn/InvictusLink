@@ -20,12 +20,13 @@ if ($LASTEXITCODE -ne 0) {
     Write-Host "Firewall rule already exists: $ruleName"
 }
 
-$wg = Get-NetConnectionProfile -InterfaceAlias -like "WireGuard*" -ErrorAction SilentlyContinue
-if ($wg -and $wg.NetworkCategory -ne "Private") {
-    Set-NetConnectionProfile -InterfaceAlias -like "WireGuard*" -NetworkCategory Private
+$wgProfile = Get-NetConnectionProfile -InterfaceAlias -like "WireGuard*" -ErrorAction SilentlyContinue |
+    Select-Object -First 1
+if ($wgProfile -and $wgProfile.NetworkCategory -ne "Private") {
+    Set-NetConnectionProfile -InterfaceIndex $wgProfile.InterfaceIndex -NetworkCategory Private
     Write-Host "Set WireGuard tunnel network profile to Private (was Public)."
-} elseif ($wg) {
+} elseif ($wgProfile) {
     Write-Host "WireGuard tunnel is already Private."
 }
 
-Write-Host "Done. Phone should reach http://<your-pc-vpn-ip>:3003/health with WireGuard on."
+Write-Host "Done. With WireGuard on, phone should reach http://<your-pc-vpn-ip>:3003/health"

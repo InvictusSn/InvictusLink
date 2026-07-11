@@ -30,21 +30,30 @@ Nothing runs on a vendor cloud for the agent itself: your phone talks to **your*
 
 ---
 
-## App features (v1.60)
+## App features (v2.0)
 
 | Tab | Purpose |
 |-----|---------|
-| **Home** | Session picker; prompt box (“Message your PC agent…”); prompt history (last 20); live elapsed timer while running |
-| **Activity** | Agent log, daily digest, pending approvals for risky prompts |
-| **Connection** | Bridge URL, one-time pairing (biometric), VPN checklist (WireGuard + Tailscale), test connection |
-| **Settings** | In-app OTA update check/install; publish new APK from PC; archive version |
+| **Home** | Session picker; growing prompt composer with attachments + prompt library (templates with `{{variables}}`); streamed markdown replies; history with export to Markdown (PC or share sheet) |
+| **Activity** | Daily digest with stat rings; **cost dashboard** (per-device spend, limits + alerts, local-model & prompt-caching savings); agent log; pending approvals |
+| **Connection** | Bridge URL + QR scan, one-time pairing (biometric), VPN checklist (WireGuard + Tailscale), test connection |
+| **Settings** | **AI Providers** (OpenAI, Claude, xAI/Grok, Gemini, Ollama, LM Studio) with Auto smart routing; **Rules** (persistent instructions — global / per-provider / per-session, optional Obsidian vault references); OTA update check/install; publish new APK from PC; crash diagnostics |
+
+**v2 highlights**
+
+- **Multi-provider + Auto mode** — smart routing: agentic work → Cursor, research → Grok (live web search), quick or private tasks → local models
+- **Rules** — standing instructions injected into every prompt, with cache-safe handling and optional vault note context
+- **Cost tracking** — exact xAI pricing from the live API, per-device spend on shared keys, monthly/daily limits with phone alerts
+- **Grok prompt caching** — append-only threads, sticky cache routing, automatic thread compaction to keep long chats cheap
+- **Prompt library & Markdown export** — reusable templates; take phone research to your PC as clean `.md` files
 
 **Security model**
 
-- Bridge token + optional biometric for pairing
+- Bridge token + biometric pairing; auth fails closed (no token → every request rejected)
+- API keys live only on your PC — the phone sees masked tails
 - HTTP over private network (cleartext on VPN — normal for home lab; do not port-forward the bridge to the public internet)
 - Risky prompts can require phone approval before the agent runs
-- One agent task at a time per bridge instance
+- Sanitized, path-jailed uploads and exports; one agent task at a time per bridge instance
 
 ---
 

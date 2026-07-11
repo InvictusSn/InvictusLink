@@ -25,10 +25,11 @@ npm run build
 
 ## Configure
 
-Copy the example env file:
+Copy the example env file and workspace config:
 
 ```powershell
 copy .env.example .env
+copy config\projects.json.example config\projects.json
 ```
 
 Edit `bridge/.env`:
@@ -145,10 +146,10 @@ Use your PC’s address on the **same network the phone uses**:
 | Network | Bridge URL example |
 |---------|-------------------|
 | Tailscale | `http://100.x.x.x:3003` |
-| WireGuard | `http://10.66.66.11:3003` |
+| WireGuard | `http://10.66.66.21:3003` (your assigned PC IP) |
 | Home LAN only | `http://192.168.1.50:3003` |
 
-Port must match `PORT` in `.env` (default **3003** in docs; code default is 3001 if unset — always set `PORT=3003`).
+Port must match `PORT` in `.env` (default **3003**).
 
 ---
 
@@ -167,4 +168,4 @@ The PC must be **awake** with the bridge running for Link to work.
 - Rotate `BRIDGE_TOKEN` if leaked.
 - `BRIDGE_TOKEN` is required for pairing and sensitive bridge actions.
 
-See [examples/bridge-env.example](../examples/bridge-env.example).
+See [SECURITY.md](../SECURITY.md) and [examples/bridge-env.example](../examples/bridge-env.example).

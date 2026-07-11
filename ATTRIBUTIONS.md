@@ -10,9 +10,13 @@ Thank you to everyone who helped bring Invictus Link into the world.
 
 ---
 
+## Name
+
+**Gavin Naasko** — Helped originate the name **Invictus** for this vision. With thanks for shaping the identity behind the Invictus universe. Credit Gavin in attributions for every project and public surface that carries the Invictus name.
+
 ## Contributors
 
-**Gavin Naasko** — Early brainstorming, ideas, and feedback that shaped the product direction.
+**Gavin Naasko** — Early brainstorming, ideas, and feedback that shaped the product direction, including the Invictus name (see above).
 
 **Jason Adkins** — Brainstorming, feedback, and support during development.
 

@@ -15,14 +15,13 @@ This folder has quick-start templates and guides. The full project (Android app,
 | File | Purpose |
 |------|---------|
 | `START_HERE.txt` | Quick overview — read first |
-| `InvictusLink.apk` | Install this on your Android phone |
-| `wireguard-phone-qr.png` | Optional — phone WireGuard QR (you create during VPN setup) |
-| `wireguard-phone.conf` | Optional — same phone tunnel as text import |
 | `README.md` | This guide (for you) |
 | `AGENTS.md` | For Cursor on your PC — AI setup help |
 | `bridge-env.example` | Template for `bridge/.env` on your PC |
 | `projects.json.example` | Template for which folders the agent may use on your PC |
 | `VERSION.txt` | App version |
+
+**Install the APK** from `release/InvictusLink.apk` at the package root (or build from `android/`).
 
 **WireGuard configs** are created during VPN setup (unique per user). The bridge source is in the repository `bridge/` folder at the project root.
 
@@ -92,7 +91,7 @@ Your app always uses: **`http://<your-pc-ip>:3003`** — for example `http://10.
 
 ### Step 1 — Install the app
 
-1. Copy `InvictusLink.apk` to your phone.  
+1. Copy `release/InvictusLink.apk` to your phone.  
 2. Open it and tap **Install** (allow "unknown apps" if Android asks).  
 3. Open **Invictus Link** and read the welcome screens.
 

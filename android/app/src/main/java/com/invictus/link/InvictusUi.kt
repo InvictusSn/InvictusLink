@@ -12,16 +12,19 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -29,8 +32,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
@@ -50,12 +56,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 object InvictusDimens {
     val pageHorizontal = 24.dp
@@ -213,52 +220,78 @@ fun InvictusTextField(
     enabled: Boolean = true,
     readOnly: Boolean = false,
     singleLine: Boolean = true,
+    minLines: Int = 1,
+    maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     visualTransformation: VisualTransformation = VisualTransformation.None,
     trailingIcon: @Composable (() -> Unit)? = null,
     transparentBackground: Boolean = false,
 ) {
     val containerColor = if (transparentBackground) Color.Transparent else InvictusBrand.NavySurface
-    val borderColor = if (transparentBackground) Color.Transparent else InvictusBrand.HairlineStrong
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        modifier = modifier
-            .fillMaxWidth()
-            .then(
-                if (!transparentBackground) {
-                    Modifier.invictusCardSurface(
-                        background = containerColor,
-                        borderColor = borderColor,
-                    )
-                } else {
-                    Modifier
-                },
+    val interactionSource = remember { MutableInteractionSource() }
+    val focused by interactionSource.collectIsFocusedAsState()
+    val borderColor = when {
+        transparentBackground -> Color.Transparent
+        focused -> InvictusBrand.Accent.copy(alpha = 0.55f)
+        else -> InvictusBrand.HairlineStrong
+    }
+
+    // The label lives outside the field (not Material's floating label) so it
+    // never crowds the input border — small caps caption with clear breathing room.
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        if (label != null) {
+            Text(
+                label.uppercase(),
+                style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.2.sp),
+                color = if (focused) InvictusBrand.Accent else InvictusBrand.Muted,
+                modifier = Modifier.padding(start = 4.dp),
+            )
+        }
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            modifier = Modifier
+                .fillMaxWidth()
+                .then(
+                    if (transparentBackground) {
+                        Modifier.defaultMinSize(minHeight = 44.dp)
+                    } else {
+                        Modifier.invictusCardSurface(
+                            background = containerColor,
+                            borderColor = borderColor,
+                        )
+                    },
+                ),
+            placeholder = placeholder?.let {
+                { Text(it, color = InvictusBrand.Muted.copy(alpha = 0.55f)) }
+            },
+            enabled = enabled,
+            readOnly = readOnly,
+            singleLine = singleLine,
+            minLines = minLines,
+            maxLines = maxLines,
+            keyboardOptions = keyboardOptions,
+            visualTransformation = visualTransformation,
+            trailingIcon = trailingIcon,
+            interactionSource = interactionSource,
+            shape = RoundedCornerShape(InvictusDimens.inputRadius),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color.Transparent,
+                unfocusedBorderColor = Color.Transparent,
+                disabledBorderColor = Color.Transparent,
+                focusedContainerColor = Color.Transparent,
+                unfocusedContainerColor = Color.Transparent,
+                disabledContainerColor = Color.Transparent,
+                cursorColor = InvictusBrand.Accent,
+                focusedTextColor = InvictusBrand.White,
+                unfocusedTextColor = InvictusBrand.White,
+                disabledTextColor = InvictusBrand.Muted,
             ),
-        label = label?.let { { Text(it, color = InvictusBrand.Muted) } },
-        placeholder = placeholder?.let { { Text(it, color = InvictusBrand.Muted) } },
-        enabled = enabled,
-        readOnly = readOnly,
-        singleLine = singleLine,
-        keyboardOptions = keyboardOptions,
-        visualTransformation = visualTransformation,
-        trailingIcon = trailingIcon,
-        shape = RoundedCornerShape(InvictusDimens.inputRadius),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = Color.Transparent,
-            unfocusedBorderColor = Color.Transparent,
-            disabledBorderColor = Color.Transparent,
-            focusedContainerColor = Color.Transparent,
-            unfocusedContainerColor = Color.Transparent,
-            disabledContainerColor = Color.Transparent,
-            cursorColor = InvictusBrand.Accent,
-            focusedTextColor = InvictusBrand.White,
-            unfocusedTextColor = InvictusBrand.White,
-            disabledTextColor = InvictusBrand.Muted,
-            focusedLabelColor = InvictusBrand.Muted,
-            unfocusedLabelColor = InvictusBrand.Muted,
-        ),
-    )
+        )
+    }
 }
 
 @Composable
@@ -283,7 +316,12 @@ fun InvictusPrimaryButton(
             onClick()
         },
         modifier = modifier
-            .scale(scale)
+            // graphicsLayer lambda animates on the draw pass only — no
+            // per-frame recomposition, no press-stutter.
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
             .height(52.dp),
         enabled = enabled,
         shape = RoundedCornerShape(InvictusDimens.cardRadius),
@@ -315,6 +353,95 @@ fun InvictusSecondaryButton(
     )
 }
 
+/** Circular accent send button anchored inside the prompt box. Becomes a stop button while sending. */
+@Composable
+fun InvictusSendButton(
+    onSend: () -> Unit,
+    onStop: () -> Unit,
+    enabled: Boolean,
+    sending: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val view = LocalView.current
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed && (enabled || sending)) 0.92f else 1f,
+        animationSpec = spring(stiffness = 800f),
+        label = "sendScale",
+    )
+    val active = if (sending) sending else enabled
+    Box(
+        modifier = modifier
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .size(46.dp)
+            .clip(CircleShape)
+            .background(
+                if (active) InvictusBrand.Accent
+                else InvictusBrand.Accent.copy(alpha = 0.35f),
+            )
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                enabled = active,
+            ) {
+                performConfirmHaptic(view)
+                if (sending) onStop() else onSend()
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        if (sending) {
+            Icon(
+                Icons.Filled.Stop,
+                contentDescription = "Stop agent",
+                tint = InvictusBrand.White,
+                modifier = Modifier.size(22.dp),
+            )
+        } else {
+            Icon(
+                Icons.AutoMirrored.Filled.Send,
+                contentDescription = "Send to PC",
+                tint = InvictusBrand.White.copy(alpha = if (enabled) 1f else 0.6f),
+                modifier = Modifier.size(20.dp),
+            )
+        }
+    }
+}
+
+/** Small circular outline icon button (attach, secondary actions). */
+@Composable
+fun InvictusRoundIconButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    val view = LocalView.current
+    Box(
+        modifier = modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .background(InvictusBrand.NavyElevated)
+            .border(1.dp, InvictusBrand.HairlineStrong, CircleShape)
+            .clickable(enabled = enabled) {
+                performTapHaptic(view)
+                onClick()
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            icon,
+            contentDescription = contentDescription,
+            tint = if (enabled) InvictusBrand.White else InvictusBrand.Muted.copy(alpha = 0.5f),
+            modifier = Modifier.size(20.dp),
+        )
+    }
+}
+
 @Composable
 fun InvictusTextButton(
     onClick: () -> Unit,
@@ -328,6 +455,35 @@ fun InvictusTextButton(
         enabled = enabled,
         content = content,
     )
+}
+
+/**
+ * "Refresh" action for card headers. The button stays mounted (hidden, not
+ * removed) while loading, with the spinner overlaid in the same slot — the
+ * header never changes size, so surrounding text can't shift or flicker.
+ */
+@Composable
+fun InvictusRefreshAction(
+    loading: Boolean,
+    onRefresh: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        InvictusTextButton(
+            onClick = onRefresh,
+            enabled = !loading,
+            modifier = Modifier.alpha(if (loading) 0f else 1f),
+        ) {
+            Text("Refresh", color = InvictusBrand.Muted, style = MaterialTheme.typography.labelMedium)
+        }
+        if (loading) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(18.dp),
+                strokeWidth = 2.dp,
+                color = InvictusBrand.Accent,
+            )
+        }
+    }
 }
 
 @Composable
@@ -404,6 +560,7 @@ fun InvictusBottomBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .navigationBarsPadding()
                 .height(72.dp)
                 .padding(horizontal = 6.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
