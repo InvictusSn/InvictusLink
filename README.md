@@ -4,7 +4,7 @@ Invictus Link is a small Android app that talks to a bridge on **your** PC. You 
 
 I built this because I wanted it. If it's useful to you too, take it, run it, change it, make it yours.
 
-![Invictus Link — connect providers, chat from your phone](docs/media/link-v2-demo.gif)
+![Invictus Link — connect providers, chat from your phone](docs/media/link-v2-demo-animated.gif)
 
 [Download the v2.0 release](https://github.com/InvictusSn/InvictusLink/releases/tag/v2.0) · [APK](release/InvictusLink.apk) · [Release notes](RELEASE_NOTES_2.0.md)
 
